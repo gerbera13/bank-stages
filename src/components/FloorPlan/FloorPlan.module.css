@@ -1,0 +1,109 @@
+/* ============================================================
+   FloorPlan — стили слоёв и комнат
+   ============================================================ */
+
+.room {
+  /* комнаты статичны; hover не нужен на MVP */
+}
+
+.roomShape {
+  transition:
+    fill var(--duration-base) var(--ease-out),
+    filter var(--duration-base) var(--ease-out);
+}
+
+.roomLabel {
+  pointer-events: none;
+}
+
+.roomLabelText {
+  font: 600 14px var(--font-sans);
+  fill: var(--color-text);
+  user-select: none;
+  letter-spacing: 0.1px;
+}
+
+/* ============================================================
+   Особые объекты
+   ============================================================ */
+
+.object {
+  cursor: pointer;
+}
+
+/* Внутренняя группа маркера — сюда применяется hover-scale,
+   чтобы не конфликтовать с SVG-атрибутом transform внешней группы. */
+.markerGroup {
+  transition: transform var(--duration-fast) var(--ease-out);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.markerGroupActive {
+  transform: scale(1.12);
+}
+
+.marker {
+  transition:
+    filter var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.cameraCone {
+  transition: opacity var(--duration-base) var(--ease-out);
+  opacity: 0.9;
+}
+
+.object:hover .cameraCone {
+  opacity: 1;
+}
+
+/* Пульсирующее кольцо выбора */
+.selectedRing {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: object-pulse 1.6s var(--ease-out) infinite;
+}
+
+/* Статичный «ореол» вокруг выбранного — для чёткой видимости поверх пульсации */
+.selectedHalo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: object-halo 2s var(--ease-out) infinite;
+}
+
+@keyframes object-pulse {
+  0% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+@keyframes object-halo {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.object:focus-visible {
+  outline: none;
+}
+
+.object:focus-visible .marker {
+  stroke: var(--color-accent);
+  stroke-width: 4;
+}

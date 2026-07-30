@@ -1,0 +1,204 @@
+/* ============================================================
+   FloorPlan Studio — Глобальная тема (Modern Minimal)
+   Единый источник дизайн-токенов. ИНВАРИАНТ (см. AGENTS.md §3.2,
+   specs/design-system.md): не менять без согласования.
+   ============================================================ */
+
+:root {
+  /* --- Семейство шрифтов --- */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
+    Arial, sans-serif;
+
+  /* --- Базовые цвета (поверхности, текст) --- */
+  --color-bg: #f4f6fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
+  --color-border: #e2e8f0;
+
+  /* --- Акцент --- */
+  --color-accent: #6366f1;
+  --color-accent-soft: #eef2ff;
+
+  /* --- Цвета типов комнат (пастельные заливки) --- */
+  --color-room-hall: #eef2ff;
+  --color-room-office: #f0f9ff;
+  --color-room-meeting: #fdf4ff;
+  --color-room-server: #fef3c7;
+  --color-room-service: #ecfdf5;
+  --color-room-cafe: #fff7ed;
+  --color-room-corridor: #f1f5f9;
+
+  /* --- Цвета типов объектов --- */
+  --color-obj-elevator: #3b82f6;
+  --color-obj-camera: #8b5cf6;
+  --color-obj-atm: #10b981;
+  --color-obj-stairs: #f97316;
+
+  /* --- Мягкие фоны объектов (свечение/подложка) --- */
+  --color-obj-elevator-soft: #dbeafe;
+  --color-obj-camera-soft: #ede9fe;
+  --color-obj-atm-soft: #d1fae5;
+  --color-obj-stairs-soft: #ffedd5;
+
+  /* --- Стены --- */
+  --color-wall: #475569;
+  --color-wall-inner: #64748b;
+  --wall-thickness: 5;
+  --wall-thickness-inner: 3;
+
+  /* --- Статусы --- */
+  --color-status-ok: #10b981;
+  --color-status-warn: #f59e0b;
+  --color-status-error: #ef4444;
+
+  /* --- Тени --- */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+
+  /* --- Скругления --- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* --- Типографика --- */
+  --font-display: 700 20px/1.2 var(--font-sans);
+  --font-title: 600 16px/1.3 var(--font-sans);
+  --font-body: 400 14px/1.5 var(--font-sans);
+  --font-label: 500 12px/1.4 var(--font-sans);
+  --font-caption: 400 11px/1.4 var(--font-sans);
+
+  /* --- Анимации --- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 320ms;
+
+  /* --- Отступы --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+}
+
+/* --- Сброс --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font: var(--font-body);
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+}
+
+/* Внешний вид выделения */
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+/* Глобальный focus-visible для keyboard-навигации */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Аккуратный скроллбар (Webkit + Firefox) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-text-subtle) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-subtle) 50%, transparent);
+  border-radius: var(--radius-full);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   react-zoom-pan-pinch — глобальные классы (не CSS Modules)
+   ============================================================ */
+
+.plan-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* wrapper — viewport (обрезает), content — трансформируемый слой */
+.plan-zoom-wrapper,
+.plan-zoom-content {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plan-zoom-content {
+  touch-action: none;
+}
+
+.plan-zoom-content .floor-svg {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
