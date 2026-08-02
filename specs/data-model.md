@@ -96,6 +96,8 @@
  * @property {string} name        — название ("Лифт №1", "Камера вход")
  * @property {string} status      — статус (см. набор по типу ниже)
  * @property {Object} details     — тип-специфичные детали (см. ниже)
+ * @property {string} [roomId]    — id помещения, в котором находится (для отсечения
+ *                                  конуса камеры по стенам через clipPath)
  */
 ```
 

@@ -4,7 +4,7 @@ import { OBJECT_ICONS, OBJECT_COLORS } from './objectTypes.js'
 import styles from './FloorPlan.module.css'
 
 /** Радиус конуса обзора камеры (в единицах SVG) */
-const CONE_RADIUS = 130
+const CONE_RADIUS = 45
 /** Радиус маркера объекта */
 const MARKER_R = 16
 
@@ -28,6 +28,7 @@ export default function PlanObject({
   selected = false,
   visible = true,
   onSelect,
+  clipId,
 }) {
   const [hovered, setHovered] = useState(false)
   const Icon = OBJECT_ICONS[obj.type] ?? OBJECT_ICONS.atm
@@ -39,32 +40,20 @@ export default function PlanObject({
 
   const handleClick = () => onSelect?.(obj.id)
 
+  // Конус обзора камеры рендерится в АБСОЛЮТНЫХ координатах (вне translate-группы маркера),
+  // чтобы clipPath по полигону комнаты (тоже абсолютный) отсекал его ровно по стенам.
+  const showCone = obj.type === 'camera' && obj.details?.angle != null
+
   return (
-    <g
-      transform={`translate(${obj.x}, ${obj.y})`}
-      data-object-id={obj.id}
-      className={styles.object}
-      onClick={handleClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      role="button"
-      tabIndex={0}
-      aria-label={obj.name}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          handleClick()
-        }
-      }}
-    >
-      {/* Конус обзора — только для камеры. pointer-events: none, чтобы не перехватывал клики */}
-      {obj.type === 'camera' && obj.details?.angle != null && (
+    <>
+      {/* Конус обзора камеры — треугольный, отсекается по стенам помещения (clipPath) */}
+      {showCone && (
         <polygon
           className={styles.cameraCone}
           points={polygonToPoints(
             cameraConePoints(
-              0,
-              0,
+              obj.x,
+              obj.y,
               CONE_RADIUS,
               obj.details.angle,
               obj.details.direction ?? 0
@@ -75,8 +64,27 @@ export default function PlanObject({
           strokeOpacity="0.28"
           strokeWidth="1.2"
           pointerEvents="none"
+          clipPath={clipId ? `url(#${clipId})` : undefined}
         />
       )}
+
+      <g
+        transform={`translate(${obj.x}, ${obj.y})`}
+        data-object-id={obj.id}
+        className={styles.object}
+        onClick={handleClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        role="button"
+        tabIndex={0}
+        aria-label={obj.name}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            handleClick()
+          }
+        }}
+      >
 
       {/* Кольцо выбора: пульсирующее (анимация) + статичная обводка для чёткой видимости */}
       {selected && (
@@ -128,5 +136,6 @@ export default function PlanObject({
         </g>
       </g>
     </g>
+    </>
   )
 }

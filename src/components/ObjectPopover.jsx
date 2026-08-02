@@ -2,10 +2,7 @@ import { useEffect, useState } from 'react'
 import { observer } from 'mobx-react-lite'
 import {
   useFloating,
-  autoUpdate,
   offset,
-  flip,
-  shift,
   useDismiss,
   useRole,
   useInteractions,
@@ -24,6 +21,11 @@ import styles from './ObjectPopover.module.css'
 /**
  * Поповер с деталями выбранного объекта. Позиционируется через @floating-ui/react.
  * Якорь — DOM-элемент выбранного объекта (по data-object-id). См. specs/popover.md.
+ *
+ * ПОЗИЦИОНИРОВАНИЕ СТАБИЛЬНОЕ (без дёрганья):
+ * - placement фиксирован ('right'); без flip/shift — не «перепрыгивает» между сторонами.
+ * - autoUpdate отключён — позиция рассчитывается ОДИН раз при открытии и не пересчитывается
+ *   при движении мыши/зуме. Поповер «стоит на месте».
  */
 const ObjectPopover = observer(function ObjectPopover() {
   const { selection } = useStore()
@@ -49,8 +51,8 @@ const ObjectPopover = observer(function ObjectPopover() {
       if (!next) selection.clear()
     },
     placement: 'right',
-    middleware: [offset(16), flip(), shift({ padding: 16 })],
-    whileElementsMounted: autoUpdate,
+    // Только фиксированный отступ; без flip/shift/autoUpdate — позиция стабильна.
+    middleware: [offset(16)],
     elements: { reference: anchorEl },
   })
 

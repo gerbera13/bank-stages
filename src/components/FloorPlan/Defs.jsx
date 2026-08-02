@@ -7,13 +7,13 @@
 export default function Defs() {
   return (
     <defs>
-      {/* --- Тени --- */}
-      <filter id="filter-floor-shadow" x="-10%" y="-10%" width="120%" height="125%">
-        <feDropShadow dx="0" dy="10" stdDeviation="16" floodColor="#0f172a" floodOpacity="0.14" />
+      {/* --- Тени (заметные, для объёма) --- */}
+      <filter id="filter-floor-shadow" x="-15%" y="-15%" width="130%" height="140%">
+        <feDropShadow dx="0" dy="18" stdDeviation="24" floodColor="#0f172a" floodOpacity="0.35" />
       </filter>
 
-      <filter id="filter-room-shadow" x="-5%" y="-5%" width="110%" height="115%">
-        <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="#0f172a" floodOpacity="0.05" />
+      <filter id="filter-room-shadow" x="-15%" y="-15%" width="130%" height="145%">
+        <feDropShadow dx="0" dy="8" stdDeviation="9" floodColor="#0f172a" floodOpacity="0.38" />
       </filter>
 
       {/* --- Свечение объектов (hover/selected) --- */}
@@ -60,6 +60,12 @@ export default function Defs() {
         <stop offset="0%" stopColor="#e2e8f0" />
         <stop offset="100%" stopColor="#f1f5f9" />
       </linearGradient>
+
+      {/* --- Паттерн плитки: зелёная заливка + диагональные полоски для объёма --- */}
+      <pattern id="pattern-tile-green" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect width="8" height="8" fill="#f0fdf4" />
+        <line x1="0" y1="0" x2="0" y2="8" stroke="#bbf7d0" strokeWidth="1.5" />
+      </pattern>
 
       {/* --- Конус обзора камеры (радиальный: ярче у камеры) --- */}
       <radialGradient id="grad-camera-cone" cx="0%" cy="50%" r="100%">
