@@ -8,10 +8,11 @@
  * Приёмы обработки зафиксированы в make-stage.md §8.5.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler } from 'lucide-react'
+import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler, Grid2x2 } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { vectorizeWalls } from '../../utils/wallVectorizer.js'
+import { buildRooms } from '../../utils/planarRooms.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -82,6 +83,8 @@ export default function Converter() {
   // Первая веха нового движка: найденные стены поверх исходника (только показ)
   const [vectors, setVectors] = useState(null)
   const [showVectors, setShowVectors] = useState(false)
+  const [newRooms, setNewRooms] = useState(null)
+  const [showRooms, setShowRooms] = useState(false)
   // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
   const urlRef = useRef(null)
 
@@ -120,9 +123,12 @@ export default function Converter() {
       setFloor(building.floors[0])
       // Векторизатор работает на том же кадре — наложение совпадёт с «Было»
       try {
-        setVectors(vectorizeWalls(imgData))
+        const v = vectorizeWalls(imgData)
+        setVectors(v)
+        setNewRooms(buildRooms(v.walls, v.w, v.h))
       } catch {
         setVectors(null)
+        setNewRooms(null)
       }
       // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
       blueprint.acceptConverted(raw, `чертёж «${name}»`)
@@ -161,6 +167,7 @@ export default function Converter() {
     setFileName(null)
     setRotated(false)
     setVectors(null)
+    setNewRooms(null)
   }
 
   const stats = useMemo(() => {
@@ -269,6 +276,16 @@ export default function Converter() {
             </button>
             <button
               type="button"
+              className={`${styles.toolBtn} ${showRooms ? styles.toolBtnOn : ''}`}
+              onClick={() => setShowRooms((v) => !v)}
+              disabled={!newRooms}
+              title="Стадия 3: комнаты как грани планарного разбиения"
+            >
+              <Grid2x2 size={14} />
+              Комнаты{newRooms ? ` (${newRooms.rooms.length})` : ''}
+            </button>
+            <button
+              type="button"
               className={styles.toolBtn}
               onClick={handleExport}
               disabled={!floor}
@@ -288,6 +305,23 @@ export default function Converter() {
                 <div className={styles.imageWrap}>
                   <div className={styles.imageStack}>
                     <img src={originalUrl} alt="Исходный чертёж" className={styles.image} />
+                    {showRooms && newRooms && vectors && (
+                      <svg
+                        className={styles.overlay}
+                        viewBox={`0 0 ${vectors.w} ${vectors.h}`}
+                        preserveAspectRatio="none"
+                      >
+                        {newRooms.rooms.map((room, i) => (
+                          <polygon
+                            key={i}
+                            points={room.polygon.map((p) => p.join(',')).join(' ')}
+                            fill={`hsl(${(i * 47) % 360} 70% 60% / 0.35)`}
+                            stroke={`hsl(${(i * 47) % 360} 70% 40%)`}
+                            strokeWidth="1.5"
+                          />
+                        ))}
+                      </svg>
+                    )}
                     {showVectors && vectors && (
                       <svg
                         className={styles.overlay}
