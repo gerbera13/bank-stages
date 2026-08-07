@@ -8,11 +8,12 @@
  * Приёмы обработки зафиксированы в make-stage.md §8.5.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler, Grid2x2 } from 'lucide-react'
+import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler, Grid2x2, DoorOpen } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { vectorizeWalls } from '../../utils/wallVectorizer.js'
 import { buildRooms } from '../../utils/planarRooms.js'
+import { findOpenings, findStairFlights } from '../../utils/planFeatures.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -85,6 +86,8 @@ export default function Converter() {
   const [showVectors, setShowVectors] = useState(false)
   const [newRooms, setNewRooms] = useState(null)
   const [showRooms, setShowRooms] = useState(false)
+  const [feats, setFeats] = useState(null)
+  const [showFeats, setShowFeats] = useState(false)
   // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
   const urlRef = useRef(null)
 
@@ -124,11 +127,17 @@ export default function Converter() {
       // Векторизатор работает на том же кадре — наложение совпадёт с «Было»
       try {
         const v = vectorizeWalls(imgData)
+        const built = buildRooms(v.walls, v.w, v.h)
         setVectors(v)
-        setNewRooms(buildRooms(v.walls, v.w, v.h))
+        setNewRooms(built)
+        setFeats({
+          ...findOpenings(v.walls, v.inkHard, v.w, v.h, built.rooms),
+          flights: findStairFlights(v.rawSegments, v.w, v.h),
+        })
       } catch {
         setVectors(null)
         setNewRooms(null)
+        setFeats(null)
       }
       // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
       blueprint.acceptConverted(raw, `чертёж «${name}»`)
@@ -168,6 +177,7 @@ export default function Converter() {
     setRotated(false)
     setVectors(null)
     setNewRooms(null)
+    setFeats(null)
   }
 
   const stats = useMemo(() => {
@@ -286,6 +296,17 @@ export default function Converter() {
             </button>
             <button
               type="button"
+              className={`${styles.toolBtn} ${showFeats ? styles.toolBtnOn : ''}`}
+              onClick={() => setShowFeats((v) => !v)}
+              disabled={!feats}
+              title="Стадия 4: двери, окна и лестницы из векторной геометрии"
+            >
+              <DoorOpen size={14} />
+              Проёмы
+              {feats ? ` (${feats.doors.length}/${feats.windows.length}/${feats.flights.length})` : ''}
+            </button>
+            <button
+              type="button"
               className={styles.toolBtn}
               onClick={handleExport}
               disabled={!floor}
@@ -319,6 +340,33 @@ export default function Converter() {
                             stroke={`hsl(${(i * 47) % 360} 70% 40%)`}
                             strokeWidth="1.5"
                           />
+                        ))}
+                      </svg>
+                    )}
+                    {showFeats && feats && vectors && (
+                      <svg
+                        className={styles.overlay}
+                        viewBox={`0 0 ${vectors.w} ${vectors.h}`}
+                        preserveAspectRatio="none"
+                      >
+                        {feats.flights.flatMap((f, fi) =>
+                          f.treads.map((t, ti) => (
+                            <line
+                              key={`s${fi}-${ti}`}
+                              x1={t.x1}
+                              y1={t.y1}
+                              x2={t.x2}
+                              y2={t.y2}
+                              stroke="#7c3aed"
+                              strokeWidth="2"
+                            />
+                          )),
+                        )}
+                        {feats.doors.map((d, i) => (
+                          <circle key={`d${i}`} cx={d.x} cy={d.y} r={Math.max(3, d.width / 2)} fill="#16a34a" fillOpacity="0.75" />
+                        ))}
+                        {feats.windows.map((win, i) => (
+                          <circle key={`w${i}`} cx={win.x} cy={win.y} r={Math.max(3, win.width / 2)} fill="#0284c7" fillOpacity="0.75" />
                         ))}
                       </svg>
                     )}
