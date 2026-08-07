@@ -10,6 +10,7 @@ const ROOM_TYPES = [
   { label: 'Кафе', colorVar: '--color-room-cafe' },
   { label: 'Санузел', colorVar: '--color-room-service' },
   { label: 'Коридор', colorVar: '--color-room-corridor' },
+  { label: 'Лифтовый холл', colorVar: '--color-room-lift' },
 ]
 
 /**

@@ -27,6 +27,9 @@ export class BlueprintStore {
   /** @type {boolean} показывать ли «некрасивый» исходный чертёж вместо красивого плана */
   showRaw = false
 
+  /** @type {boolean} показывать актуальный чертёж вместо демо-«Меридиана» */
+  showDrawing = false
+
   /** @param {import('./RootStore.js').RootStore} root */
   constructor(root) {
     this.root = root
@@ -35,9 +38,19 @@ export class BlueprintStore {
 
   // --- Computed ---
 
-  /** Активное здание: импортированное или мок по умолчанию */
+  /** Активное здание: актуальный чертёж, если он есть и включён, иначе «Меридиан» */
   get building() {
-    return this.importedBuilding ?? defaultBuilding
+    return this.showDrawing && this.importedBuilding ? this.importedBuilding : defaultBuilding
+  }
+
+  /** Есть ли что показывать вместо «Меридиана» (импорт или результат конвертера) */
+  get hasDrawing() {
+    return this.importedBuilding !== null
+  }
+
+  /** Показан ли сейчас чертёж (а не «Меридиан») */
+  get showsDrawing() {
+    return this.showDrawing && this.importedBuilding !== null
   }
 
   /** Импортирован ли чертёж */
@@ -69,6 +82,7 @@ export class BlueprintStore {
       this.rawData = raw
       this.importedFrom = source
       this.showRaw = false
+      this.showDrawing = true
       this.lastSummary = blueprintSummary(parsed)
       // Переключаемся на первый этаж импортированного здания
       this.root.ui.setActiveFloor(parsed.floors[0]?.id ?? 'f1')
@@ -103,11 +117,46 @@ export class BlueprintStore {
     this.lastSummary = null
     this.rawData = null
     this.showRaw = false
+    this.showDrawing = false
     this.root.ui.setActiveFloor('f1')
   }
 
   /** Переключить вид: «некрасивый» исходный чертёж ↔ красивый план */
   toggleRaw() {
     this.showRaw = !this.showRaw
+  }
+
+  /**
+   * Показать актуальный чертёж на плане ↔ вернуть демо-«Меридиан».
+   * Без чертежа переключать нечего.
+   */
+  toggleDrawing() {
+    if (this.importedBuilding === null) return
+    this.showDrawing = !this.showDrawing
+    this.root.ui.setActiveFloor(this.building.floors[0]?.id ?? 'f1')
+  }
+
+  /**
+   * Принять готовое здание из конвертера — минуя JSON: чертёж сразу
+   * доступен на основном плане по кнопке «Чертёж».
+   * @param {object} raw — сырой чертёж в формате blueprint-import
+   * @param {string} source — что показать в подписи («чертёж plan.png»)
+   */
+  acceptConverted(raw, source) {
+    try {
+      const parsed = parseBlueprint(raw)
+      this.importedBuilding = parsed
+      this.rawData = raw
+      this.importedFrom = source
+      this.lastError = null
+      this.lastSummary = blueprintSummary(parsed)
+      this.showRaw = false
+      this.showDrawing = true
+      this.root.ui.setActiveFloor(parsed.floors[0]?.id ?? 'f1')
+      return true
+    } catch (err) {
+      this.lastError = err.message
+      return false
+    }
   }
 }

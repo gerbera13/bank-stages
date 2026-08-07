@@ -1,7 +1,7 @@
 import { observer } from 'mobx-react-lite'
 import { polygonToPoints, polygonBoundingBox } from '../../utils/geometry.js'
 import Defs from './Defs.jsx'
-import Room from './Room.jsx'
+import Room, { Door, SlidingDoor } from './Room.jsx'
 import PlanObject from './PlanObject.jsx'
 
 /**
@@ -90,7 +90,7 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
 
       {/* Слой 3a: ВНУТРЕННИЕ СТЕНЫ поверх заливок всех комнат
           (иначе partition у края комнаты перекрывается соседом). */}
-      <g id="layer-inner-walls" pointerEvents="none">
+      <g id="layer-inner-walls" pointerEvents="none" filter={raw ? undefined : 'url(#filter-wall-shadow)'}>
         {rooms.flatMap((room) =>
           (room.features ?? [])
             .filter((f) => f.type === 'partition')
@@ -100,10 +100,18 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
         )}
       </g>
 
+      {/* Слой 3a2: ДВЕРИ — поверх внутренних стен. Проём и крестик двери
+          рисуются в толще перегородки, поэтому слоем ниже они закрашиваются. */}
+      <g id="layer-doors" pointerEvents="none">
+        {rooms.flatMap((room) =>
+          (room.doors ?? []).map((door, i) => <Door key={`${room.id}-door-${i}`} door={door} />),
+        )}
+      </g>
+
       {/* Слой 3b: ЖИРНЫЙ внешний контур здания (несущие стены, в которых окна).
           Рисуется по периметру стен комнат (80..920 × 60..580), поверх комнат. */}
       {!raw && (
-        <g id="layer-outer-walls" pointerEvents="none">
+        <g id="layer-outer-walls" pointerEvents="none" filter="url(#filter-wall-shadow)">
           <BuildingOutline rooms={rooms} outline={floor.outline} />
         </g>
       )}
@@ -121,9 +129,13 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
           {rooms.flatMap((room) =>
             (room.doors ?? [])
               .filter((d) => isOuterDoor(d, outlineBox))
-              .map((door, i) => (
-                <OuterDoorCut key={`${room.id}-od-${i}`} door={door} />
-              ))
+              .map((door, i) =>
+                door.style === 'sliding' ? (
+                  <SlidingDoor key={`${room.id}-od-${i}`} door={door} />
+                ) : (
+                  <OuterDoorCut key={`${room.id}-od-${i}`} door={door} />
+                ),
+              )
           )}
         </g>
       )}
@@ -166,7 +178,7 @@ function InnerWall({ feat }) {
       <polyline
         points={pts}
         fill="none"
-        stroke="#1e293b"
+        stroke="var(--color-wall)"
         strokeWidth={sw}
         strokeLinecap="square"
         strokeLinejoin="miter"
@@ -196,7 +208,7 @@ function BuildingOutline({ rooms, outline }) {
       <polygon
         points={polygonToPoints(outline)}
         fill="none"
-        stroke="#1e293b"
+        stroke="var(--color-wall-outer)"
         strokeWidth="8"
         strokeLinejoin="miter"
       />
@@ -229,7 +241,7 @@ function BuildingOutline({ rooms, outline }) {
     <polygon
       points={polygonToPoints(points)}
       fill="none"
-      stroke="#1e293b"
+      stroke="var(--color-wall-outer)"
       strokeWidth="8"
       strokeLinejoin="miter"
     />

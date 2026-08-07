@@ -17,7 +17,7 @@
  */
 
 /** Допустимые типы комнат (должны совпадать с design-system.md) */
-const ROOM_TYPES = ['hall', 'office', 'meeting', 'server', 'service', 'cafe', 'corridor']
+const ROOM_TYPES = ['hall', 'office', 'meeting', 'server', 'service', 'cafe', 'corridor', 'lift']
 
 /** Допустимые типы объектов */
 const OBJECT_TYPES = ['elevator', 'camera', 'atm', 'stairs']
@@ -89,11 +89,16 @@ function normalizeRoom(raw, index, floorId) {
   // Пустое имя остаётся пустым — подпись на плане не рисуется
   // (правило make-stage.md §8.3: если на схеме нет читаемых подписей — не выдумывать).
   const name = typeof raw.name === 'string' ? raw.name.trim() : ''
+  // Готовая ломаная (скошенные стены из конвертера) важнее прямоугольника
+  const explicit =
+    Array.isArray(raw.polygon) &&
+    raw.polygon.length >= 3 &&
+    raw.polygon.every((p) => Array.isArray(p) && num(p[0]) != null && num(p[1]) != null)
   const room = {
     id: `${floorId}-r${index + 1}`,
     name,
     type: raw.type,
-    polygon: rectToPolygon({ x, y, w, h }),
+    polygon: explicit ? raw.polygon.map((p) => [p[0], p[1]]) : rectToPolygon({ x, y, w, h }),
   }
   // Детальная прорисовка (из конвертера): двери, окна, элементы интерьера,
   // якорь подписи, размер шрифта, вырезы стен — переносятся как есть.
@@ -103,6 +108,8 @@ function normalizeRoom(raw, index, floorId) {
   if (Array.isArray(raw.wallGaps)) room.wallGaps = raw.wallGaps
   if (Array.isArray(raw.labelAnchor)) room.labelAnchor = raw.labelAnchor
   if (typeof raw.labelFontSize === 'number') room.labelFontSize = raw.labelFontSize
+  // Явный градиент заливки — когда смежные комнаты одного типа надо различить
+  if (typeof raw.gradient === 'string') room.gradient = raw.gradient
   return room
 }
 
@@ -160,11 +167,19 @@ function normalizeFloor(raw, index) {
   const floorId = `f${index + 1}`
   const level = num(raw.level)
   const counters = {}
+  // Контур сложной формы (Г-образный корпус): иначе внешняя стена рисуется по bbox
+  const outline =
+    Array.isArray(raw.outline) &&
+    raw.outline.length >= 3 &&
+    raw.outline.every((p) => Array.isArray(p) && num(p[0]) != null && num(p[1]) != null)
+      ? raw.outline.map((p) => [p[0], p[1]])
+      : undefined
   return {
     id: floorId,
     level: level ?? index + 1,
     name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : `Этаж ${index + 1}`,
     bounds: Array.isArray(raw.bounds) && raw.bounds.length === 2 ? raw.bounds : undefined,
+    outline,
     rooms: raw.rooms.map((r, i) => normalizeRoom(r, i, floorId)),
     objects: Array.isArray(raw.objects) ? raw.objects.map((o, i) => normalizeObject(o, i, floorId, counters)) : [],
   }

@@ -22,14 +22,41 @@
   --color-accent: #6366f1;
   --color-accent-soft: #eef2ff;
 
-  /* --- Цвета типов комнат (пастельные заливки) --- */
-  --color-room-hall: #eef2ff;
-  --color-room-office: #f0f9ff;
-  --color-room-meeting: #fdf4ff;
-  --color-room-server: #fef3c7;
-  --color-room-service: #ecfdf5;
-  --color-room-cafe: #fff7ed;
-  --color-room-corridor: #f1f5f9;
+  /* --- Цвета типов комнат (пастельные заливки) ---
+     Палитра приложения: оттенки разведены по кругу, два холодных подряд не
+     идут. Санузлы зелёные (М/Ж на всех этажах). Коридор — тёплый нейтральный,
+     чтобы служебная лента не спорила с комнатами.
+     Загружаемые чертежи рисуются другой, «чертёжной» палитрой —
+     она переопределяет `--room-*` в Converter.module.css. */
+  --color-room-hall: #ddd6fe;
+  --color-room-office: #bae6fd;
+  --color-room-meeting: #fbcfe8;
+  --color-room-server: #fdefb6;
+  --color-room-service: #bdf4da;
+  --color-room-cafe: #fed7aa;
+  --color-room-corridor: #e7e5e4;
+  /* Лифтовый холл — светлый графит: транзитная зона, не помещение */
+  --color-room-lift: #c6ced9;
+  /* Лестничный марш — холодный серый: не помещение, а конструкция */
+  --color-stairs: #dbe1e8;
+
+  /* Стопы градиентов заливки: -a сверху (= --color-room-*), -b снизу */
+  --room-hall-a: #ddd6fe;
+  --room-hall-b: #ede9fe;
+  --room-office-a: #bae6fd;
+  --room-office-b: #e0f2fe;
+  --room-meeting-a: #fbcfe8;
+  --room-meeting-b: #fce7f3;
+  --room-server-a: #fdefb6;
+  --room-server-b: #fef8dd;
+  --room-service-a: #bdf4da;
+  --room-service-b: #dcfaeb;
+  --room-cafe-a: #fed7aa;
+  --room-cafe-b: #ffedd5;
+  --room-corridor-a: #e7e5e4;
+  --room-corridor-b: #f0efee;
+  --room-lift-a: #c6ced9;
+  --room-lift-b: #dde2e9;
 
   /* --- Цвета типов объектов --- */
   --color-obj-elevator: #3b82f6;
@@ -43,9 +70,13 @@
   --color-obj-atm-soft: #d1fae5;
   --color-obj-stairs-soft: #ffedd5;
 
-  /* --- Стены --- */
+  /* --- Стены ---
+     Иерархия по тону: несущая тяжелее перегородки, створка двери темнее обеих
+     (иначе она сливается со стеной, в толще которой нарисована). */
+  --color-wall-outer: #334155;
   --color-wall: #475569;
   --color-wall-inner: #64748b;
+  --color-door-leaf: #0f172a;
   --wall-thickness: 5;
   --wall-thickness-inner: 3;
 
@@ -87,6 +118,21 @@
   --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
+}
+
+/* «Чертёжная» палитра — для загружаемых/сконвертированных чертежей.
+   Как на планах БТИ: кабинеты светло-жёлтые, санузлы голубые, крупные залы
+   розоватые. Вешается на контейнер плана, поэтому едет вместе с чертежом
+   и в конвертер, и на основной план. */
+.palette-draft {
+  --room-office-a: #fdf0be;
+  --room-office-b: #fdf7dc;
+  --room-service-a: #bae6fd;
+  --room-service-b: #e0f2fe;
+  --room-meeting-a: #f9cfe0;
+  --room-meeting-b: #fce7ef;
+  --room-hall-a: #f9cfe0;
+  --room-hall-b: #fce7ef;
 }
 
 /* --- Сброс --- */

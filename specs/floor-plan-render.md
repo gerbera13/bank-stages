@@ -27,13 +27,27 @@
 переиспользуются по `id`. **Запрещено** объявлять фильтры инлайн на каждом элементе.
 
 ### Фильтры
+
+Тень двухуровневая: короткая контактная задаёт толщину, длинная мягкая — высоту
+над подложкой. Актуальные значения — в `src/components/FloorPlan/Defs.jsx`.
+
 ```html
-<filter id="filter-floor-shadow" x="-20%" y="-20%" width="140%" height="140%">
-  <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.12"/>
+<!-- Плита этажа парит над фоном -->
+<filter id="filter-floor-shadow" x="-20%" y="-20%" width="140%" height="150%">
+  <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.28"/>
+  <feDropShadow dx="0" dy="34" stdDeviation="34" flood-color="#0f172a" flood-opacity="0.42"/>
 </filter>
 
-<filter id="filter-room-shadow" x="-10%" y="-10%" width="120%" height="120%">
-  <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0f172a" flood-opacity="0.06"/>
+<!-- Комнаты примыкают вплотную: тень короткая, иначе план мутнеет -->
+<filter id="filter-room-shadow" x="-20%" y="-20%" width="140%" height="150%">
+  <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.22"/>
+  <feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.3"/>
+</filter>
+
+<!-- Главный источник объёма: стены «выдавлены» над полом -->
+<filter id="filter-wall-shadow" x="-25%" y="-25%" width="150%" height="160%">
+  <feDropShadow dx="0" dy="3" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.5"/>
+  <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.42"/>
 </filter>
 
 <filter id="filter-object-glow" x="-50%" y="-50%" width="200%" height="200%">
@@ -44,6 +58,9 @@
   </feMerge>
 </filter>
 ```
+
+`filter-wall-shadow` вешается на слои `layer-inner-walls` и `layer-outer-walls`
+целиком (в `raw`-режиме — не вешается: там плоский исходный чертёж).
 
 ### Градиенты
 - `grad-floor` — `<radialGradient>`: центр светлее, края чуть темнее («воздух»).
@@ -88,9 +105,28 @@
 
 ## 6. Слой дверей (`layer-doors`)
 
-- Условное обозначение: на стыках комнат (где должны быть проходы) — разрыв в обводке или
-  тонкая дуга («дуга открывания»). На MVP — минимальное условное обозначение, чтобы не
-- отвлекать от общей картинки. Не критично для киллер-фичи; можно вынести в Roadmap.
+Идёт **после** `layer-inner-walls`: створка и крестик рисуются в толще стены,
+и слоем ниже их закрашивала бы перегородка.
+
+- `style: 'cross'` (конвертер, make-stage.md §8.2) — створка `--color-door-leaf`
+  ровно в толщину перегородки (не выпирает за её грани) плюс тонкая линия
+  поперёк стены. Створка темнее стены, иначе не читается.
+- Иначе — дуга открывания («классика») с белым разрывом в обводке.
+- `style: 'sliding'` — раздвижная (выход на балкон): проём во всю толщину стены
+  и два полотна внахлёст по разные стороны от её оси. Рисуется в `layer-windows`,
+  после внешнего контура, иначе несущая стена закрашивает и проём, и полотна.
+- Двери на периметре дополнительно прорезают внешнюю стену (`OuterDoorCut`
+  в `layer-windows`, после `layer-outer-walls`).
+
+### Объём элементов интерьера
+
+Плоский полигон читается наклейкой на полу. Объёмные элементы собираются из трёх
+слоёв: тень на полу → притенённая боковина (тот же контур, сдвинутый вниз на
+`depth`) → верхняя грань с бликом (`grad-counter-top`).
+
+- `counterCurve` — стойка: `feat.color` задаёт тон, `feat.depth` (по умолчанию 6)
+  — высоту корпуса.
+- `pouf` — мягкое круглое сиденье: тень + заливка `feat.color` + светлая макушка.
 
 ## 7. Слой подписей (`layer-labels`)
 

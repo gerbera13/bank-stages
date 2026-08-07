@@ -7,17 +7,26 @@
  *
  * Приёмы обработки зафиксированы в make-stage.md §8.5.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Upload, Image as ImageIcon, Download, RotateCcw } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
+import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
 
 /**
  * Прочитать файл изображения в ImageData (через canvas).
+ *
+ * Вертикальный (портретный) чертёж поворачивается на 90°. Движок разбирает
+ * планы в горизонтальной ориентации: подписи ищутся строками, ступени —
+ * горизонтальными штрихами, коридор — широкой низкой лентой. На повёрнутом
+ * чертеже всё это не срабатывает (проверено: 34 ложных «мебели», лестница и
+ * коридор не находятся). Поворачиваем и картинку-исходник, чтобы «Было» и
+ * «Стало» лежали одинаково.
+ *
  * @param {File} file
- * @returns {Promise<{imageData: ImageData, url: string}>}
+ * @returns {Promise<{imageData: ImageData, url: string, rotated: boolean}>}
  */
 function readImageData(file) {
   return new Promise((resolve, reject) => {
@@ -29,25 +38,54 @@ function readImageData(file) {
       const ratio = Math.min(1, maxSide / Math.max(img.width, img.height))
       const w = Math.max(1, Math.round(img.width * ratio))
       const h = Math.max(1, Math.round(img.height * ratio))
+      // Явно портретный: квадратные не трогаем — там ориентация не читается
+      const rotated = h > w * 1.15
       const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
+      canvas.width = rotated ? h : w
+      canvas.height = rotated ? w : h
       const ctx = canvas.getContext('2d', { willReadFrequently: true })
+      if (rotated) {
+        ctx.translate(canvas.width, 0)
+        ctx.rotate(Math.PI / 2)
+      }
       ctx.drawImage(img, 0, 0, w, h)
-      resolve({ imageData: ctx.getImageData(0, 0, w, h), url })
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      if (!rotated) {
+        resolve({ imageData, url, rotated })
+        return
+      }
+      // Показываем повёрнутый исходник — иначе панели «Было/Стало» не совпадают
+      URL.revokeObjectURL(url)
+      canvas.toBlob((blob) => {
+        resolve({ imageData, url: URL.createObjectURL(blob), rotated })
+      })
     }
-    img.onerror = () => reject(new Error('Не удалось прочитать изображение.'))
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Не удалось прочитать изображение.'))
+    }
     img.src = url
   })
 }
 
 export default function Converter() {
+  const { blueprint } = useStore()
   const [originalUrl, setOriginalUrl] = useState(null)
   const [floor, setFloor] = useState(null)
   const [extracted, setExtracted] = useState(null)
   const [error, setError] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [fileName, setFileName] = useState(null)
+  // Портретный чертёж развёрнут в горизонт — сообщаем об этом явно
+  const [rotated, setRotated] = useState(false)
+  // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
+  const urlRef = useRef(null)
+
+  const showOriginal = (url) => {
+    if (urlRef.current && urlRef.current !== url) URL.revokeObjectURL(urlRef.current)
+    urlRef.current = url
+    setOriginalUrl(url)
+  }
 
   const handleImage = async (file) => {
     if (!file) return
@@ -55,16 +93,17 @@ export default function Converter() {
     setFloor(null)
     setExtracted(null)
     try {
-      const { imageData: imgData, url } = await readImageData(file)
-      setOriginalUrl(url)
+      const { imageData: imgData, url, rotated } = await readImageData(file)
+      showOriginal(url)
       setFileName(file.name)
-      process(imgData)
+      setRotated(rotated)
+      process(imgData, file.name)
     } catch (err) {
       setError(err.message)
     }
   }
 
-  const process = (imgData) => {
+  const process = (imgData, name) => {
     setProcessing(true)
     setError(null)
     try {
@@ -75,6 +114,8 @@ export default function Converter() {
       const raw = toRawBlueprint(ext, scale, ox, oy)
       const building = parseBlueprint(raw)
       setFloor(building.floors[0])
+      // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
+      blueprint.acceptConverted(raw, `чертёж «${name}»`)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -94,18 +135,21 @@ export default function Converter() {
     const raw = toRawBlueprint(extracted, scale, ox, oy)
     const blob = new Blob([JSON.stringify(raw, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(blob)
+    a.href = url
     a.download = 'plan-draft.json'
     a.click()
-    URL.revokeObjectURL(a.href)
+    // Отпускаем после старта скачивания, иначе Safari отменяет загрузку
+    setTimeout(() => URL.revokeObjectURL(url), 0)
   }
 
   const reset = () => {
-    setOriginalUrl(null)
+    showOriginal(null)
     setFloor(null)
     setExtracted(null)
     setError(null)
     setFileName(null)
+    setRotated(false)
   }
 
   const stats = useMemo(() => {
@@ -117,7 +161,7 @@ export default function Converter() {
       windows: extracted.windows.length,
       sanitary: extracted.sanitary?.length ?? 0,
       furniture: extracted.furniture?.length ?? 0,
-      stairs: extracted.stairs ? 'есть' : 'нет',
+      stairs: extracted.stairs?.length ? String(extracted.stairs.length) : 'нет',
     }
   }, [extracted])
 
@@ -194,7 +238,8 @@ export default function Converter() {
               <span className={styles.stats}>
                 {stats.mode} · комнат {stats.rooms} · дверей {stats.doors} · окон {stats.windows}
                 {' · '}сантехника {stats.sanitary} · мебель {stats.furniture}
-                {' · '}лестница: {stats.stairs}
+                {' · '}лестниц: {stats.stairs}
+                {rotated && ' · повёрнут на 90°'}
               </span>
             )}
             <button type="button" className={styles.toolBtn} onClick={reset}>
@@ -225,7 +270,7 @@ export default function Converter() {
               </section>
               <section className={styles.pane}>
                 <h3 className={styles.paneTitle}>Стало — красивый план</h3>
-                <div className={styles.planWrap}>
+                <div className={`${styles.planWrap} palette-draft`}>
                   <FloorPlanSvg floor={floor} />
                 </div>
                 <p className={styles.hint}>

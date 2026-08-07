@@ -104,6 +104,59 @@
   border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
+/* Переключатель планов: демо-«Меридиан» ↔ загруженный чертёж */
+.planSwitch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.planSwitchTitle {
+  font: var(--font-label);
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.planSwitchRow {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.planSwitchBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  font: var(--font-label);
+  color: var(--color-text-muted);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.planSwitchBtn:hover:not(:disabled):not(.planSwitchBtnOn) {
+  color: var(--color-text);
+}
+
+.planSwitchBtnOn {
+  color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.planSwitchBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* --- Область плана --- */
 .planArea {
   flex: 1;

@@ -133,12 +133,19 @@
   color: var(--color-accent);
 }
 
+/* «Было» и «Стало» — равные панели: чертежи сравнивают глазами рядом */
 .compare {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(480px, 2fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
   min-height: 0;
   flex: 1;
+}
+
+@media (width < 1100px) {
+  .compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .pane {
@@ -174,7 +181,8 @@
   justify-content: center;
 }
 
-/* План: SVG на всю ширину панели, без обрезки */
+/* План: SVG на всю ширину панели, без обрезки.
+   «Чертёжная» палитра приходит глобальным классом `palette-draft`. */
 .planWrap {
   padding: 12px;
   background: #f1f5f9;
@@ -185,10 +193,8 @@
 
 .planWrap :global(.floor-svg) {
   width: 100%;
-  max-width: 1100px;
   height: auto;
   aspect-ratio: 1000 / 640;
-  min-height: 420px;
   flex-shrink: 0;
   display: block;
   background: #fff;
@@ -197,7 +203,7 @@
 }
 
 .image {
-  max-width: 100%;
+  width: 100%;
   max-height: 100%;
   object-fit: contain;
 }

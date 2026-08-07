@@ -4,6 +4,7 @@ import styles from './FloorPlan.module.css'
 /**
  * Типы комнат, для которых в Defs.jsx объявлены пастельные градиенты
  * (grad-room-<type>). Неизвестный тип — fallback на office.
+ * Комната может перекрыть выбор полем `gradient` (см. GRAD_EXTRA).
  */
 const GRAD_ROOM = {
   hall: true,
@@ -13,6 +14,20 @@ const GRAD_ROOM = {
   service: true,
   cafe: true,
   corridor: true,
+  lift: true,
+}
+
+/**
+ * Дополнительные градиенты, которые комната выбирает явно через `room.gradient`.
+ * Нужны, когда смежные помещения одного типа надо различить по тону, а заводить
+ * под каждое отдельный RoomType незачем (техблок 3-го этажа).
+ */
+const GRAD_EXTRA = {
+  'graphite-1': true,
+  'graphite-2': true,
+  'graphite-3': true,
+  'meeting-light': true,
+  beige: true,
 }
 
 /**
@@ -53,7 +68,7 @@ export default function Room({ room, raw = false }) {
           В raw-режиме — белая, без тени (некрасивый стандартный чертёж). */}
       <polygon
         points={points}
-        fill={raw ? '#ffffff' : `url(#grad-room-${Object.hasOwn(GRAD_ROOM, room.type) ? room.type : 'office'})`}
+        fill={raw ? '#ffffff' : `url(#grad-room-${roomGradientKey(room)})`}
         filter={raw ? undefined : 'url(#filter-room-shadow)'}
       />
       {/* Внутренние стены. Если есть partition-features — обводку гасим
@@ -63,7 +78,7 @@ export default function Room({ room, raw = false }) {
         points={points}
         fill="none"
         stroke={raw ? '#1e293b' : hasPartitions ? 'none' : '#475569'}
-        strokeWidth={raw ? '2' : '1.5'}
+        strokeWidth={raw ? '2' : '3'}
         strokeLinejoin={raw ? 'miter' : 'round'}
       />
 
@@ -74,10 +89,8 @@ export default function Room({ room, raw = false }) {
         <WallGap key={`gap-${i}`} gap={gap} fill={`var(--color-room-${room.type})`} />
       ))}
 
-      {/* Двери: белая полоса-«проём» поверх стены + дуга открывания */}
-      {(room.doors ?? []).map((door, i) => (
-        <Door key={`door-${i}`} door={door} />
-      ))}
+      {/* Двери рендерятся в слое layer-doors (после внутренних стен) —
+          иначе толстая перегородка закрашивает проём и крестик двери. */}
 
       {/* Элементы интерьера. partition рисуется в FloorPlanSvg (слой поверх всех комнат),
           иначе соседняя заливка перекрывает стену на общем ребре. */}
@@ -136,15 +149,59 @@ export default function Room({ room, raw = false }) {
 }
 
 /**
+ * Раздвижная дверь (выход на балкон): проём во всю толщину стены + два
+ * полотна внахлёст по разные стороны от оси стены — стандартный план-символ.
+ * Рисуется в слое `layer-windows`, ПОСЛЕ внешнего контура: слоем ниже толстая
+ * несущая стена закрасила бы и проём, и полотна.
+ */
+export function SlidingDoor({ door }) {
+  const { x, y, w, side } = door
+  const isH = side === 'top' || side === 'bottom'
+  const half = w / 2
+  const cut = 10 // перекрывает толщину внешней стены (8)
+  const leaf = 3.5 // толщина полотна
+  const off = 2.6 // смещение полотна от оси стены
+
+  const rect = (rx, ry, rw, rh, fill) => ({ x: rx, y: ry, width: rw, height: rh, fill })
+  const parts = isH
+    ? [
+        rect(x - half, y - cut / 2, w, cut, '#ffffff'),
+        rect(x - half, y - off - leaf, half, leaf, '#475569'),
+        rect(x, y + off, half, leaf, '#475569'),
+      ]
+    : [
+        rect(x - cut / 2, y - half, cut, w, '#ffffff'),
+        rect(x - off - leaf, y - half, leaf, half, '#475569'),
+        rect(x + off, y, leaf, half, '#475569'),
+      ]
+
+  return (
+    <g pointerEvents="none">
+      {parts.map((r, i) => (
+        <rect key={i} {...r} rx="0.5" />
+      ))}
+    </g>
+  )
+}
+
+/** Какой градиент заливки взять для комнаты: явный `gradient` → тип → office. */
+function roomGradientKey(room) {
+  if (room.gradient && Object.hasOwn(GRAD_EXTRA, room.gradient)) return room.gradient
+  return Object.hasOwn(GRAD_ROOM, room.type) ? room.type : 'office'
+}
+
+/**
  * Дверь. style: 'cross' — крест-полоски организации (make-stage.md §8.2 / §8.5 п.9);
  * иначе — дуга открывания (классика).
  */
-function Door({ door }) {
+export function Door({ door }) {
   const { x, y, w, side, doubleDoor, style } = door
 
   if (style === 'cross') {
     return <CrossDoor door={door} />
   }
+  // Раздвижная рисуется в layer-windows (после внешней стены) — здесь пропускаем
+  if (style === 'sliding') return null
 
   // Двойная распашная дверь: две створки в РАЗНЫЕ стороны от центра.
   if (doubleDoor) {
@@ -182,33 +239,28 @@ function Door({ door }) {
 }
 
 /**
- * Дверь-крестик (стиль организации): полоска поперёк проёма + линия перпендикулярно стене.
- * §8.5 п.9: на H-стене планка 22×6 + линия 1.2×26; на V-стене планка 20×6 поперёк + линия 26.
+ * Дверь-крестик (стиль организации): створка в толще стены + тонкая линия
+ * поперёк неё. §8.5 п.9. Рисуется в слое `layer-doors` — поверх перегородок,
+ * иначе стена закрашивает и створку, и линию.
  */
 function CrossDoor({ door }) {
   const { x, y, side } = door
   const isH = side === 'top' || side === 'bottom'
-  // Единые размеры (чуть крупнее для читаемости на конвертере)
-  const plankW = isH ? 22 : 6
-  const plankH = isH ? 6 : 20
+  // Створка — ровно в толщину перегородки (7), чтобы не выпирать за её грани.
+  // Внешняя стена толще (8), там остаётся тонкая кромка — так и надо.
+  const plankT = 7
+  const plankLen = 22
   const lineLen = 26
   const lineT = 1.4
 
-  // Светлый проём в толще стены
-  const cut = isH ? (
-    <rect x={x - 12} y={y - 5} width={24} height={10} fill="#f1f5f9" />
-  ) : (
-    <rect x={x - 5} y={y - 12} width={10} height={24} fill="#f1f5f9" />
-  )
-
-  // Планка поперёк проёма (#334155 / #cbd5e1)
+  // Створка — темнее стены (--color-wall), иначе сливается с ней
   const plank = (
     <rect
-      x={x - plankW / 2}
-      y={y - plankH / 2}
-      width={plankW}
-      height={plankH}
-      fill="#334155"
+      x={x - (isH ? plankLen : plankT) / 2}
+      y={y - (isH ? plankT : plankLen) / 2}
+      width={isH ? plankLen : plankT}
+      height={isH ? plankT : plankLen}
+      fill="var(--color-door-leaf)"
       rx="0.5"
     />
   )
@@ -238,7 +290,6 @@ function CrossDoor({ door }) {
 
   return (
     <g pointerEvents="none">
-      {cut}
       {plank}
       {line}
     </g>
@@ -397,14 +448,41 @@ function RoomFeature({ feat }) {
     )
   }
   if (feat.type === 'counterCurve') {
-    // Тонкая изогнутая стойка — полигон с изгибом (как на референсе).
+    // Объёмная стойка: тень на полу → притенённая боковина (тот же контур,
+    // сдвинутый вниз) → столешница с бликом. Плоский полигон читался наклейкой.
     const pts = (feat.points ?? []).map((p) => `${p[0]},${p[1]}`).join(' ')
+    const color = feat.color || '#475569'
+    const depth = feat.depth ?? 6
     return (
       <g pointerEvents="none">
-        {/* Тень */}
-        <polygon points={pts} fill="#0f172a" opacity="0.2" transform="translate(2, 3)" filter="url(#filter-room-shadow)" />
-        {/* Стойка (цвет можно задать через feat.color, по умолчанию тёмная) */}
-        <polygon points={pts} fill={feat.color || '#475569'} stroke="#1e293b" strokeWidth="1" strokeLinejoin="round" />
+        {/* Тень на полу */}
+        <polygon
+          points={pts}
+          fill="#0f172a"
+          opacity="0.22"
+          transform={`translate(3, ${depth + 4})`}
+          filter="url(#filter-room-shadow)"
+        />
+        {/* Боковина — корпус стойки */}
+        <g transform={`translate(0, ${depth})`}>
+          <polygon points={pts} fill={color} />
+          <polygon points={pts} fill="#0f172a" opacity="0.42" />
+        </g>
+        {/* Столешница + блик */}
+        <polygon points={pts} fill={color} stroke="#334155" strokeWidth="0.8" strokeLinejoin="round" />
+        <polygon points={pts} fill="url(#grad-counter-top)" />
+      </g>
+    )
+  }
+  if (feat.type === 'pouf') {
+    // Пуф — мягкое круглое сиденье: тень + заливка + светлая макушка.
+    // По умолчанию бежевый: тёплое пятно на холодной заливке офиса.
+    const { x, y, r = 11, color = '#e6d7bd' } = feat
+    return (
+      <g pointerEvents="none">
+        <circle cx={x + 1} cy={y + 3} r={r} fill="#0f172a" opacity="0.18" />
+        <circle cx={x} cy={y} r={r} fill={color} stroke="#ffffff" strokeWidth="1.2" />
+        <circle cx={x - r * 0.25} cy={y - r * 0.3} r={r * 0.45} fill="#ffffff" opacity="0.35" />
       </g>
     )
   }
@@ -611,18 +689,49 @@ function RoomFeature({ feat }) {
     )
   }
   if (feat.type === 'stairs') {
-    // Лестница: вертикальная направляющая + равные ступени (приём §8.5 п.8).
+    // Лестница: серая площадка + вертикальная направляющая + равные ступени
+    // (приём §8.5 п.8). Площадка отделяет марш от заливки комнаты — на чертежах
+    // БТИ лестничный блок так и рисуют, серым по цветному помещению.
     const { x, y, step = 16, count = 8, len = 24, dir = 'right' } = feat
+    const treadX = dir === 'right' ? x : x - len
+    const pad = 5
+    // feat.plate — готовая площадка (конвертер отдаёт всю лестничную шахту),
+    // иначе обводим сам марш с полями.
+    const plate = feat.plate ?? {
+      x: Math.min(treadX, x) - pad,
+      y: y - pad - 2,
+      w: Math.abs(len) + pad * 2,
+      h: Math.max(0, count - 1) * step + pad * 2 + 4,
+    }
     const treads = []
     for (let i = 0; i < count; i++) {
       const ty = y + i * step
-      const x0 = dir === 'right' ? x : x - len
-      treads.push(<line key={i} x1={x0} y1={ty} x2={x0 + len} y2={ty} stroke="#94a3b8" strokeWidth="3" />)
+      treads.push(
+        <line key={i} x1={treadX} y1={ty} x2={treadX + len} y2={ty} stroke="#94a3b8" strokeWidth="3" />,
+      )
     }
     return (
       <g pointerEvents="none">
-        {/* Направляющая */}
-        <line x1={x} y1={y - 4} x2={x} y2={y + count * step + 4} stroke="#475569" strokeWidth="2.5" />
+        <rect
+          x={plate.x}
+          y={plate.y}
+          width={plate.w}
+          height={plate.h}
+          rx="2"
+          fill="var(--color-stairs)"
+          stroke="#cbd5e1"
+          strokeWidth="1"
+        />
+        {/* Направляющая — строго по маршу: раньше уезжала на шаг ниже
+            последней ступени и торчала из шахты в оконный проём. */}
+        <line
+          x1={x}
+          y1={y - 4}
+          x2={x}
+          y2={y + Math.max(0, count - 1) * step + 4}
+          stroke="#475569"
+          strokeWidth="2.5"
+        />
         {treads}
       </g>
     )
