@@ -301,6 +301,84 @@ function isDuplicate(seg, kept, tol) {
 }
 
 /**
+ * Сшить коллинеарные куски в целую стену.
+ * Хафа режет стену на части там, где её пересекают перегородки или где
+ * дверной проём шире допуска. Для планарного разбиения это плохо: граф
+ * получается дырявым и грани комнат «текут» друг в друга.
+ *
+ * Куски считаются одной стеной, если они почти сонаправлены, лежат на одной
+ * прямой (малое смещение поперёк) и либо перекрываются, либо разделены
+ * разрывом не шире дверного проёма.
+ */
+function mergeCollinear(segments, angleTol, offsetTol, gapTol) {
+  const dirOf = (s) => {
+    const dx = s.x2 - s.x1
+    const dy = s.y2 - s.y1
+    const len = Math.hypot(dx, dy) || 1
+    return [dx / len, dy / len, len]
+  }
+  let list = segments.map((s) => ({ ...s }))
+  let merged = true
+  let guard = 0
+  while (merged && guard++ < 20) {
+    merged = false
+    const out = []
+    const used = new Set()
+    for (let i = 0; i < list.length; i++) {
+      if (used.has(i)) continue
+      let cur = list[i]
+      used.add(i)
+      let grew = true
+      while (grew) {
+        grew = false
+        const [ux, uy, ulen] = dirOf(cur)
+        for (let j = 0; j < list.length; j++) {
+          if (used.has(j)) continue
+          const other = list[j]
+          const [vx, vy, vlen] = dirOf(other)
+          // сонаправленность (знак направления не важен)
+          const cosA = Math.abs(ux * vx + uy * vy)
+          if (cosA < Math.cos(angleTol)) continue
+          // смещение поперёк: обе точки чужого куска близко к нашей прямой
+          const off = (px, py) => Math.abs((px - cur.x1) * -uy + (py - cur.y1) * ux)
+          if (off(other.x1, other.y1) > offsetTol || off(other.x2, other.y2) > offsetTol) continue
+          // перекрытие или дверной разрыв вдоль направления
+          const proj = (px, py) => (px - cur.x1) * ux + (py - cur.y1) * uy
+          const a0 = 0
+          const a1 = ulen
+          const b0 = Math.min(proj(other.x1, other.y1), proj(other.x2, other.y2))
+          const b1 = Math.max(proj(other.x1, other.y1), proj(other.x2, other.y2))
+          const gap = Math.max(a0, b0) - Math.min(a1, b1)
+          if (gap > gapTol) continue
+          // объединяем: берём крайние точки вдоль направления
+          const lo = Math.min(a0, b0)
+          const hi = Math.max(a1, b1)
+          cur = {
+            x1: cur.x1 + ux * lo,
+            y1: cur.y1 + uy * lo,
+            x2: cur.x1 + ux * hi,
+            y2: cur.y1 + uy * hi,
+            theta: ulen >= vlen ? cur.theta : other.theta,
+          }
+          used.add(j)
+          merged = true
+          grew = true
+        }
+      }
+      out.push(cur)
+    }
+    list = out
+  }
+  return list.map((s) => ({
+    x1: Math.round(s.x1),
+    y1: Math.round(s.y1),
+    x2: Math.round(s.x2),
+    y2: Math.round(s.y2),
+    theta: s.theta,
+  }))
+}
+
+/**
  * Сшить пары параллельных граней в одну стену.
  * На чертежах стену рисуют двумя линиями: без этого шага движок видит две
  * разные стены и пустоту между ними — из-за чего заливка комнат течёт.
@@ -422,12 +500,21 @@ export function vectorizeWalls(imageData) {
     }
   }
 
-  const walls = pairFaces(segments, Math.max(10, Math.round(minSide * 0.06))).map((wall) => {
+  // Куски одной стены сшиваем ДО парности: иначе грань, разрезанная на три
+  // части, ищет себе пару по каждому куску отдельно.
+  const whole = mergeCollinear(
+    segments,
+    (6 * Math.PI) / 180,
+    Math.max(4, Math.round(minSide * 0.012)),
+    Math.max(12, Math.round(minSide * 0.1)),
+  )
+
+  const walls = pairFaces(whole, Math.max(10, Math.round(minSide * 0.06))).map((wall) => {
     if (wall.paired) return wall
     const mx = Math.round((wall.x1 + wall.x2) / 2)
     const my = Math.round((wall.y1 + wall.y2) / 2)
     const theta = Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1) + Math.PI / 2
     return { ...wall, thickness: thicknessAt(ink, w, h, mx, my, theta) }
   })
-  return { w, h, walls, segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
+  return { w, h, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
 }
