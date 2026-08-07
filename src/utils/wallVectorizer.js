@@ -516,5 +516,5 @@ export function vectorizeWalls(imageData) {
     const theta = Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1) + Math.PI / 2
     return { ...wall, thickness: thicknessAt(ink, w, h, mx, my, theta) }
   })
-  return { w, h, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
+  return { w, h, ink, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
 }
