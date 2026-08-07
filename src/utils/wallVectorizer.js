@@ -450,6 +450,9 @@ export function vectorizeWalls(imageData) {
   const w = imageData.width
   const h = imageData.height
   const ink = inkOf(imageData.data, w, h)
+  // Жёсткий порог: только тело стены. Створки дверей и линии стекла рисуют
+  // светло-серым — в мягкую маску они попадают, и проём выглядит заполненным.
+  const inkHard = inkOf(imageData.data, w, h, 140)
 
   // --- Стадия 1: убрать подписи ---
   const comps = components(ink, w, h, 4)
@@ -516,5 +519,5 @@ export function vectorizeWalls(imageData) {
     const theta = Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1) + Math.PI / 2
     return { ...wall, thickness: thicknessAt(ink, w, h, mx, my, theta) }
   })
-  return { w, h, ink, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
+  return { w, h, ink, inkHard, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
 }
