@@ -1,0 +1,1972 @@
+{
+  "oas": "1.0.0",
+  "plan_id": "meridian-f2",
+  "units": {
+    "length": "mm",
+    "angle": "deg"
+  },
+  "levels": [
+    {
+      "id": "level_f2",
+      "name": "2 этаж — Офисы",
+      "elevation_mm": 3600,
+      "is_building_story": true
+    }
+  ],
+  "rooms": [
+    {
+      "id": "f2-r1",
+      "usage": "office",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 1600,
+            "y": 7400
+          },
+          {
+            "x": 11200,
+            "y": 7400
+          },
+          {
+            "x": 11200,
+            "y": 11600
+          },
+          {
+            "x": 1600,
+            "y": 11600
+          }
+        ]
+      },
+      "area_m2": 40.32,
+      "level": "level_f2",
+      "name": "Офис open-space",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r2",
+      "usage": "cafe",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 11200,
+            "y": 7400
+          },
+          {
+            "x": 18400,
+            "y": 7400
+          },
+          {
+            "x": 18400,
+            "y": 11600
+          },
+          {
+            "x": 16000,
+            "y": 11600
+          },
+          {
+            "x": 16000,
+            "y": 12000
+          },
+          {
+            "x": 12800,
+            "y": 12000
+          },
+          {
+            "x": 12800,
+            "y": 11600
+          },
+          {
+            "x": 11200,
+            "y": 11600
+          }
+        ]
+      },
+      "area_m2": 31.52,
+      "level": "level_f2",
+      "name": "Зона отдыха",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r3",
+      "usage": "circulation",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 4000,
+            "y": 5000
+          },
+          {
+            "x": 16000,
+            "y": 5000
+          },
+          {
+            "x": 16000,
+            "y": 7400
+          },
+          {
+            "x": 4000,
+            "y": 7400
+          }
+        ]
+      },
+      "area_m2": 28.8,
+      "level": "level_f2",
+      "name": "Коридор"
+    },
+    {
+      "id": "f2-r10",
+      "usage": "circulation",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 1600,
+            "y": 5000
+          },
+          {
+            "x": 4000,
+            "y": 5000
+          },
+          {
+            "x": 4000,
+            "y": 7400
+          },
+          {
+            "x": 1600,
+            "y": 7400
+          }
+        ]
+      },
+      "area_m2": 5.76,
+      "level": "level_f2",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r13",
+      "usage": "circulation",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 16000,
+            "y": 5000
+          },
+          {
+            "x": 18400,
+            "y": 5000
+          },
+          {
+            "x": 18400,
+            "y": 7400
+          },
+          {
+            "x": 16000,
+            "y": 7400
+          }
+        ]
+      },
+      "area_m2": 5.76,
+      "level": "level_f2",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r4",
+      "usage": "meeting",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 1600,
+            "y": 2800
+          },
+          {
+            "x": 2400,
+            "y": 2800
+          },
+          {
+            "x": 2400,
+            "y": 1200
+          },
+          {
+            "x": 7400,
+            "y": 1200
+          },
+          {
+            "x": 7400,
+            "y": 5000
+          },
+          {
+            "x": 1600,
+            "y": 5000
+          }
+        ]
+      },
+      "area_m2": 20.76,
+      "level": "level_f2",
+      "name": "Переговорная «Альфа»",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r5",
+      "usage": "meeting",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 7400,
+            "y": 1200
+          },
+          {
+            "x": 12800,
+            "y": 1200
+          },
+          {
+            "x": 12800,
+            "y": 5000
+          },
+          {
+            "x": 7400,
+            "y": 5000
+          }
+        ]
+      },
+      "area_m2": 20.52,
+      "level": "level_f2",
+      "name": "Переговорная «Бета»",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r6",
+      "usage": "sanitary",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 12800,
+            "y": 1200
+          },
+          {
+            "x": 15600,
+            "y": 1200
+          },
+          {
+            "x": 15600,
+            "y": 4000
+          },
+          {
+            "x": 12800,
+            "y": 4000
+          }
+        ]
+      },
+      "area_m2": 7.84,
+      "level": "level_f2",
+      "name": "М",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r7",
+      "usage": "sanitary",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 15600,
+            "y": 1200
+          },
+          {
+            "x": 17600,
+            "y": 1200
+          },
+          {
+            "x": 17600,
+            "y": 2800
+          },
+          {
+            "x": 18400,
+            "y": 2800
+          },
+          {
+            "x": 18400,
+            "y": 4000
+          },
+          {
+            "x": 15600,
+            "y": 4000
+          }
+        ]
+      },
+      "area_m2": 6.56,
+      "level": "level_f2",
+      "name": "Ж",
+      "tags": [
+        "daylit"
+      ]
+    },
+    {
+      "id": "f2-r9",
+      "usage": "circulation",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 12800,
+            "y": 4000
+          },
+          {
+            "x": 18400,
+            "y": 4000
+          },
+          {
+            "x": 18400,
+            "y": 5000
+          },
+          {
+            "x": 12800,
+            "y": 5000
+          }
+        ]
+      },
+      "area_m2": 5.6,
+      "level": "level_f2"
+    }
+  ],
+  "walls": [
+    {
+      "id": "f2_w001",
+      "from": {
+        "x": 12800,
+        "y": 12000
+      },
+      "to": {
+        "x": 16000,
+        "y": 12000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w002",
+      "from": {
+        "x": 1600,
+        "y": 11600
+      },
+      "to": {
+        "x": 11200,
+        "y": 11600
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r1"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w003",
+      "from": {
+        "x": 11200,
+        "y": 11600
+      },
+      "to": {
+        "x": 12800,
+        "y": 11600
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w004",
+      "from": {
+        "x": 16000,
+        "y": 11600
+      },
+      "to": {
+        "x": 18400,
+        "y": 11600
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w005",
+      "from": {
+        "x": 1600,
+        "y": 11600
+      },
+      "to": {
+        "x": 1600,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r1"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w006",
+      "from": {
+        "x": 1600,
+        "y": 7400
+      },
+      "to": {
+        "x": 1600,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r10"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w007",
+      "from": {
+        "x": 1600,
+        "y": 5000
+      },
+      "to": {
+        "x": 1600,
+        "y": 2800
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w008",
+      "from": {
+        "x": 2400,
+        "y": 2800
+      },
+      "to": {
+        "x": 2400,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w009",
+      "from": {
+        "x": 4000,
+        "y": 7400
+      },
+      "to": {
+        "x": 4000,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r10",
+        "f2-r3"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w010",
+      "from": {
+        "x": 1600,
+        "y": 7400
+      },
+      "to": {
+        "x": 4000,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r1",
+        "f2-r10"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w011",
+      "from": {
+        "x": 4000,
+        "y": 7400
+      },
+      "to": {
+        "x": 11200,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r1",
+        "f2-r3"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w012",
+      "from": {
+        "x": 11200,
+        "y": 7400
+      },
+      "to": {
+        "x": 16000,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2",
+        "f2-r3"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w013",
+      "from": {
+        "x": 16000,
+        "y": 7400
+      },
+      "to": {
+        "x": 18400,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r13",
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w014",
+      "from": {
+        "x": 7400,
+        "y": 5000
+      },
+      "to": {
+        "x": 7400,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r4",
+        "f2-r5"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w015",
+      "from": {
+        "x": 1600,
+        "y": 5000
+      },
+      "to": {
+        "x": 4000,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r10",
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w016",
+      "from": {
+        "x": 4000,
+        "y": 5000
+      },
+      "to": {
+        "x": 7400,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r3",
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w017",
+      "from": {
+        "x": 7400,
+        "y": 5000
+      },
+      "to": {
+        "x": 12800,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r3",
+        "f2-r5"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w018",
+      "from": {
+        "x": 12800,
+        "y": 5000
+      },
+      "to": {
+        "x": 16000,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r3",
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w019",
+      "from": {
+        "x": 16000,
+        "y": 5000
+      },
+      "to": {
+        "x": 18400,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r13",
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w020",
+      "from": {
+        "x": 12800,
+        "y": 4000
+      },
+      "to": {
+        "x": 15600,
+        "y": 4000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r6",
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w021",
+      "from": {
+        "x": 15600,
+        "y": 4000
+      },
+      "to": {
+        "x": 18400,
+        "y": 4000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r7",
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w022",
+      "from": {
+        "x": 1600,
+        "y": 2800
+      },
+      "to": {
+        "x": 2400,
+        "y": 2800
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w023",
+      "from": {
+        "x": 17600,
+        "y": 2800
+      },
+      "to": {
+        "x": 18400,
+        "y": 2800
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r7"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w024",
+      "from": {
+        "x": 11200,
+        "y": 11600
+      },
+      "to": {
+        "x": 11200,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r1",
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w025",
+      "from": {
+        "x": 2400,
+        "y": 1200
+      },
+      "to": {
+        "x": 7400,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r4"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w026",
+      "from": {
+        "x": 7400,
+        "y": 1200
+      },
+      "to": {
+        "x": 12800,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r5"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w027",
+      "from": {
+        "x": 12800,
+        "y": 1200
+      },
+      "to": {
+        "x": 15600,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r6"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w028",
+      "from": {
+        "x": 15600,
+        "y": 1200
+      },
+      "to": {
+        "x": 17600,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r7"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w029",
+      "from": {
+        "x": 12800,
+        "y": 12000
+      },
+      "to": {
+        "x": 12800,
+        "y": 11600
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w030",
+      "from": {
+        "x": 12800,
+        "y": 5000
+      },
+      "to": {
+        "x": 12800,
+        "y": 4000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r5",
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w031",
+      "from": {
+        "x": 12800,
+        "y": 4000
+      },
+      "to": {
+        "x": 12800,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r5",
+        "f2-r6"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w032",
+      "from": {
+        "x": 15600,
+        "y": 4000
+      },
+      "to": {
+        "x": 15600,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r6",
+        "f2-r7"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w033",
+      "from": {
+        "x": 16000,
+        "y": 12000
+      },
+      "to": {
+        "x": 16000,
+        "y": 11600
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w034",
+      "from": {
+        "x": 16000,
+        "y": 7400
+      },
+      "to": {
+        "x": 16000,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r13",
+        "f2-r3"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w035",
+      "from": {
+        "x": 17600,
+        "y": 2800
+      },
+      "to": {
+        "x": 17600,
+        "y": 1200
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r7"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w036",
+      "from": {
+        "x": 18400,
+        "y": 11600
+      },
+      "to": {
+        "x": 18400,
+        "y": 7400
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r2"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w037",
+      "from": {
+        "x": 18400,
+        "y": 7400
+      },
+      "to": {
+        "x": 18400,
+        "y": 5000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r13"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w038",
+      "from": {
+        "x": 18400,
+        "y": 5000
+      },
+      "to": {
+        "x": 18400,
+        "y": 4000
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r9"
+      ],
+      "type_name": "IfcWall"
+    },
+    {
+      "id": "f2_w039",
+      "from": {
+        "x": 18400,
+        "y": 4000
+      },
+      "to": {
+        "x": 18400,
+        "y": 2800
+      },
+      "thickness_mm": 160,
+      "wall_height_mm": 3200,
+      "level": "level_f2",
+      "adjacent_rooms": [
+        "f2-r7"
+      ],
+      "type_name": "IfcWall"
+    }
+  ],
+  "openings": [
+    {
+      "id": "f2_o001",
+      "opening_type": "door",
+      "in_wall": "f2_w011",
+      "position_along_wall_mm": 1500,
+      "width_mm": 1000,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r1",
+        "f2-r3"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o002",
+      "opening_type": "window",
+      "in_wall": "f2_w002",
+      "position_along_wall_mm": 700,
+      "width_mm": 1400,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r1",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o003",
+      "opening_type": "window",
+      "in_wall": "f2_w002",
+      "position_along_wall_mm": 3100,
+      "width_mm": 1400,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r1",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o004",
+      "opening_type": "window",
+      "in_wall": "f2_w002",
+      "position_along_wall_mm": 5500,
+      "width_mm": 1400,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r1",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o005",
+      "opening_type": "window",
+      "in_wall": "f2_w005",
+      "position_along_wall_mm": 1500,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r1",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o006",
+      "opening_type": "door",
+      "in_wall": "f2_w012",
+      "position_along_wall_mm": 2700,
+      "width_mm": 1000,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r2",
+        "f2-r3"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o007",
+      "opening_type": "window",
+      "in_wall": "f2_w003",
+      "position_along_wall_mm": 300,
+      "width_mm": 1000,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r2",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o008",
+      "opening_type": "window",
+      "in_wall": "f2_w001",
+      "position_along_wall_mm": 200,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r2",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o009",
+      "opening_type": "window",
+      "in_wall": "f2_w004",
+      "position_along_wall_mm": 0,
+      "width_mm": 1000,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r2",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o010",
+      "opening_type": "window",
+      "in_wall": "f2_w036",
+      "position_along_wall_mm": 1500,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r2",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o011",
+      "opening_type": "door",
+      "in_wall": "f2_w009",
+      "position_along_wall_mm": 900,
+      "width_mm": 600,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r10",
+        "f2-r3"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o012",
+      "opening_type": "window",
+      "in_wall": "f2_w006",
+      "position_along_wall_mm": 600,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r10",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o013",
+      "opening_type": "door",
+      "in_wall": "f2_w034",
+      "position_along_wall_mm": 900,
+      "width_mm": 600,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r13",
+        "f2-r3"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o014",
+      "opening_type": "window",
+      "in_wall": "f2_w037",
+      "position_along_wall_mm": 600,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r13",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o015",
+      "opening_type": "door",
+      "in_wall": "f2_w016",
+      "position_along_wall_mm": 0,
+      "width_mm": 900,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r3",
+        "f2-r4"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o016",
+      "opening_type": "window",
+      "in_wall": "f2_w025",
+      "position_along_wall_mm": 0,
+      "width_mm": 1700,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r4",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o017",
+      "opening_type": "door",
+      "in_wall": "f2_w017",
+      "position_along_wall_mm": 2100,
+      "width_mm": 1000,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r3",
+        "f2-r5"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o018",
+      "opening_type": "window",
+      "in_wall": "f2_w026",
+      "position_along_wall_mm": 500,
+      "width_mm": 1400,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r5",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o019",
+      "opening_type": "window",
+      "in_wall": "f2_w026",
+      "position_along_wall_mm": 2700,
+      "width_mm": 1400,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r5",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o020",
+      "opening_type": "door",
+      "in_wall": "f2_w020",
+      "position_along_wall_mm": 800,
+      "width_mm": 800,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r6",
+        "f2-r9"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o021",
+      "opening_type": "window",
+      "in_wall": "f2_w027",
+      "position_along_wall_mm": 200,
+      "width_mm": 1200,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r6",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o022",
+      "opening_type": "door",
+      "in_wall": "f2_w021",
+      "position_along_wall_mm": 1000,
+      "width_mm": 800,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r7",
+        "f2-r9"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    },
+    {
+      "id": "f2_o023",
+      "opening_type": "window",
+      "in_wall": "f2_w028",
+      "position_along_wall_mm": 100,
+      "width_mm": 1000,
+      "height_mm": 1500,
+      "connects_rooms": [
+        "f2-r7",
+        "exterior"
+      ],
+      "level": "level_f2",
+      "sill_height_mm": 900,
+      "is_fixed": true,
+      "operation": "fixed",
+      "type_name": "IfcWindow"
+    },
+    {
+      "id": "f2_o024",
+      "opening_type": "door",
+      "in_wall": "f2_w018",
+      "position_along_wall_mm": 2000,
+      "width_mm": 800,
+      "height_mm": 2100,
+      "connects_rooms": [
+        "f2-r3",
+        "f2-r9"
+      ],
+      "level": "level_f2",
+      "operation": "swing",
+      "type_name": "IfcDoor"
+    }
+  ],
+  "floor_slabs": [
+    {
+      "id": "slab_f2",
+      "boundary_polygon": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 1600,
+            "y": 2800
+          },
+          {
+            "x": 2400,
+            "y": 2800
+          },
+          {
+            "x": 2400,
+            "y": 1200
+          },
+          {
+            "x": 17600,
+            "y": 1200
+          },
+          {
+            "x": 17600,
+            "y": 2800
+          },
+          {
+            "x": 18400,
+            "y": 2800
+          },
+          {
+            "x": 18400,
+            "y": 11600
+          },
+          {
+            "x": 12800,
+            "y": 11600
+          },
+          {
+            "x": 12800,
+            "y": 12000
+          },
+          {
+            "x": 11200,
+            "y": 12000
+          },
+          {
+            "x": 11200,
+            "y": 11600
+          },
+          {
+            "x": 1600,
+            "y": 11600
+          }
+        ]
+      },
+      "level": "level_f2",
+      "height_above_level_mm": 0,
+      "type_name": "Reinforced Concrete Slab"
+    }
+  ],
+  "furniture": [
+    {
+      "id": "f2_furn001",
+      "type": "casework",
+      "type_name": "Counter",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "footprint": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 11400,
+            "y": 10600
+          },
+          {
+            "x": 12800,
+            "y": 10600
+          },
+          {
+            "x": 12800,
+            "y": 11200
+          },
+          {
+            "x": 11400,
+            "y": 11200
+          }
+        ]
+      },
+      "dimensions": {
+        "width_mm": 1400,
+        "depth_mm": 600,
+        "height_mm": 1050
+      }
+    },
+    {
+      "id": "f2_furn002",
+      "type": "furniture",
+      "type_name": "Table",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "position": {
+        "x": 14000,
+        "y": 9200
+      },
+      "dimensions": {
+        "width_mm": 400,
+        "depth_mm": 400,
+        "height_mm": 750
+      }
+    },
+    {
+      "id": "f2_furn003",
+      "type": "furniture",
+      "type_name": "Table",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "position": {
+        "x": 16000,
+        "y": 8800
+      },
+      "dimensions": {
+        "width_mm": 400,
+        "depth_mm": 400,
+        "height_mm": 750
+      }
+    },
+    {
+      "id": "f2_furn004",
+      "type": "furniture",
+      "type_name": "Table",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "position": {
+        "x": 15000,
+        "y": 8000
+      },
+      "dimensions": {
+        "width_mm": 400,
+        "depth_mm": 400,
+        "height_mm": 750
+      }
+    },
+    {
+      "id": "f2_furn005",
+      "type": "casework",
+      "type_name": "Counter",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "footprint": {
+        "unit": "mm",
+        "closed": true,
+        "points": [
+          {
+            "x": 3000,
+            "y": 3200
+          },
+          {
+            "x": 6000,
+            "y": 3200
+          },
+          {
+            "x": 6000,
+            "y": 4200
+          },
+          {
+            "x": 3000,
+            "y": 4200
+          }
+        ]
+      },
+      "dimensions": {
+        "width_mm": 3000,
+        "depth_mm": 1000,
+        "height_mm": 1050
+      }
+    },
+    {
+      "id": "f2_furn006",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 3000,
+        "y": 4500
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2_furn007",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 4500,
+        "y": 4500
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2_furn008",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 6000,
+        "y": 4500
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2_furn009",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 3000,
+        "y": 2900
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2_furn010",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 4500,
+        "y": 2900
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2_furn011",
+      "type": "furniture",
+      "type_name": "Chair",
+      "in_room": "f2-r4",
+      "level": "level_f2",
+      "position": {
+        "x": 6000,
+        "y": 2900
+      },
+      "dimensions": {
+        "width_mm": 450,
+        "depth_mm": 450,
+        "height_mm": 450
+      }
+    },
+    {
+      "id": "f2-e1",
+      "position": {
+        "x": 2800,
+        "y": 6500
+      },
+      "rotation_deg": 0,
+      "dimensions": {
+        "width_mm": 1400,
+        "depth_mm": 1400,
+        "height_mm": 2400
+      },
+      "type": "fixture",
+      "type_name": "Elevator",
+      "in_room": "f2-r10",
+      "level": "level_f2",
+      "tags": [
+        "working"
+      ]
+    },
+    {
+      "id": "f2-s1",
+      "position": {
+        "x": 2800,
+        "y": 5600
+      },
+      "rotation_deg": 0,
+      "dimensions": {
+        "width_mm": 1400,
+        "depth_mm": 1400,
+        "height_mm": 3600
+      },
+      "type": "fixture",
+      "type_name": "Staircase",
+      "in_room": "f2-r10",
+      "level": "level_f2",
+      "tags": [
+        "working"
+      ]
+    },
+    {
+      "id": "f2-e2",
+      "position": {
+        "x": 17200,
+        "y": 6500
+      },
+      "rotation_deg": 0,
+      "dimensions": {
+        "width_mm": 1400,
+        "depth_mm": 1400,
+        "height_mm": 2400
+      },
+      "type": "fixture",
+      "type_name": "Elevator",
+      "in_room": "f2-r13",
+      "level": "level_f2",
+      "tags": [
+        "working"
+      ]
+    },
+    {
+      "id": "f2-s2",
+      "position": {
+        "x": 17200,
+        "y": 5600
+      },
+      "rotation_deg": 0,
+      "dimensions": {
+        "width_mm": 1400,
+        "depth_mm": 1400,
+        "height_mm": 3600
+      },
+      "type": "fixture",
+      "type_name": "Staircase",
+      "in_room": "f2-r13",
+      "level": "level_f2",
+      "tags": [
+        "working"
+      ]
+    },
+    {
+      "id": "f2-c1",
+      "position": {
+        "x": 4600,
+        "y": 6200
+      },
+      "rotation_deg": 90,
+      "dimensions": {
+        "width_mm": 250,
+        "depth_mm": 250,
+        "height_mm": 250
+      },
+      "type": "fixture",
+      "type_name": "CCTV Camera",
+      "in_room": "f2-r3",
+      "level": "level_f2",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "id": "f2-c2",
+      "position": {
+        "x": 15400,
+        "y": 6200
+      },
+      "rotation_deg": 270,
+      "dimensions": {
+        "width_mm": 250,
+        "depth_mm": 250,
+        "height_mm": 250
+      },
+      "type": "fixture",
+      "type_name": "CCTV Camera",
+      "in_room": "f2-r3",
+      "level": "level_f2",
+      "tags": [
+        "online"
+      ]
+    },
+    {
+      "id": "f2-a1",
+      "position": {
+        "x": 17400,
+        "y": 8800
+      },
+      "rotation_deg": 0,
+      "dimensions": {
+        "width_mm": 800,
+        "depth_mm": 600,
+        "height_mm": 1500
+      },
+      "type": "fixture",
+      "type_name": "ATM",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "tags": [
+        "active"
+      ]
+    },
+    {
+      "id": "f2-c3",
+      "position": {
+        "x": 12200,
+        "y": 10800
+      },
+      "rotation_deg": 111,
+      "dimensions": {
+        "width_mm": 250,
+        "depth_mm": 250,
+        "height_mm": 250
+      },
+      "type": "fixture",
+      "type_name": "CCTV Camera",
+      "in_room": "f2-r2",
+      "level": "level_f2",
+      "tags": [
+        "online"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "f2-r1",
+      "to": "f2-r3",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r2",
+      "to": "f2-r3",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r10",
+      "to": "f2-r3",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r13",
+      "to": "f2-r3",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r3",
+      "to": "f2-r4",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r3",
+      "to": "f2-r5",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r6",
+      "to": "f2-r9",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r7",
+      "to": "f2-r9",
+      "type": "direct"
+    },
+    {
+      "from": "f2-r3",
+      "to": "f2-r9",
+      "type": "direct"
+    }
+  ],
+  "metadata": {
+    "generated_by": "oas/convert.mjs (bank-stages)",
+    "timestamp": "2026-08-02T18:11:18.303Z",
+    "notes": [
+      "Источник: src/data/building.js, этаж 2 этаж — Офисы.",
+      "Масштаб: 1 SVG-ед = 20 мм; координаты инвертированы Y-down → Y-up.",
+      "Толщина стен 160 мм = strokeWidth 8; перегородки 60 мм = strokeWidth 3.",
+      "Уровни: перепад этажей принят 3600 мм (elevation_mm).",
+      "Проходы wallGap смоделированы как openings \"Passage Opening\" (is_fixed, operation fixed).",
+      "Декоративные элементы (tileCircle, tilePatch) не переносятся в OAS.",
+      "Операционные данные (ip, cash, lastService и т.п.) не входят в OAS — см. oas/README.md.",
+      "rotation_deg камер = азимут взгляда: 0° = +Y, положительное направление по часовой стрелке от +Y."
+    ]
+  }
+}

@@ -30,7 +30,6 @@ export class UiStore {
   get floors() {
     return this.root.building.floors
   }
-
   // --- Actions ---
 
   /** Сменить активный этаж (сбрасывает выбор объекта) */

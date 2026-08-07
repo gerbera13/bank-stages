@@ -8,6 +8,9 @@ import PlanObject from './PlanObject.jsx'
  * Слоистый SVG-рендер плана этажа (КИЛЛЕР-ФИЧА).
  * Порядок слоёв строго по specs/floor-plan-render.md §1.
  *
+ * Режим raw=true — «некрасивый» исходный чертёж: без градиентов, теней и эффектов,
+ * плоские белые комнаты с тонкими тёмными стенами.
+ *
  * Observer: подписывается на visibleTypes.has(...) для реактивности фильтров.
  *
  * @param {{
@@ -15,6 +18,7 @@ import PlanObject from './PlanObject.jsx'
  *   selectedObjectId?: string | null,
  *   onSelectObject?: (id: string) => void,
  *   visibleTypes?: Set<string>,
+ *   raw?: boolean,
  * }} props
  */
 const FloorPlanSvg = observer(function FloorPlanSvg({
@@ -22,6 +26,7 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
   selectedObjectId = null,
   onSelectObject,
   visibleTypes,
+  raw = false,
 }) {
   if (!floor) return null
 
@@ -31,6 +36,8 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
   // Безопасный доступ к коллекциям (на случай неполных данных)
   const rooms = floor.rooms ?? []
   const objects = floor.objects ?? []
+  // Периметр здания (для внешних дверей/окон) — bbox комнат
+  const outlineBox = roomsOutlineBox(rooms)
 
   return (
     <svg
@@ -52,53 +59,74 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
       </defs>
 
       {/* Слой 1: фон + сетка (не интерактивен) */}
-      <g id="layer-background" pointerEvents="none">
-        <rect x="0" y="0" width={w} height={h} fill="url(#pattern-grid)" />
-      </g>
+      {!raw && (
+        <g id="layer-background" pointerEvents="none">
+          <rect x="0" y="0" width={w} height={h} fill="url(#pattern-grid)" />
+        </g>
+      )}
 
-      {/* Слой 2: пол этажа — белая заливка + мягкая тень (как на архитектурном референсе). */}
-      <g id="layer-floor" pointerEvents="none">
-        <rect
-          x={pad}
-          y={pad}
-          width={w - pad * 2}
-          height={h - pad * 2}
-          rx="0"
-          fill="#ffffff"
-          filter="url(#filter-floor-shadow)"
-        />
-      </g>
+      {/* Слой 2: пол этажа — радиальный градиент (центр светлее) + мягкая тень
+          (как на архитектурном референсе). */}
+      {!raw && (
+        <g id="layer-floor" pointerEvents="none">
+          <rect
+            x={pad}
+            y={pad}
+            width={w - pad * 2}
+            height={h - pad * 2}
+            rx="16"
+            fill="url(#grad-floor)"
+            filter="url(#filter-floor-shadow)"
+          />
+        </g>
+      )}
 
       {/* Слой 3: комнаты (не интерактивны — клики проходят к объектам) */}
       <g id="layer-rooms" pointerEvents="none">
         {rooms.map((room) => (
-          <Room key={room.id} room={room} />
+          <Room key={room.id} room={room} raw={raw} />
         ))}
+      </g>
+
+      {/* Слой 3a: ВНУТРЕННИЕ СТЕНЫ поверх заливок всех комнат
+          (иначе partition у края комнаты перекрывается соседом). */}
+      <g id="layer-inner-walls" pointerEvents="none">
+        {rooms.flatMap((room) =>
+          (room.features ?? [])
+            .filter((f) => f.type === 'partition')
+            .map((feat, i) => (
+              <InnerWall key={`${room.id}-wall-${i}`} feat={feat} />
+            )),
+        )}
       </g>
 
       {/* Слой 3b: ЖИРНЫЙ внешний контур здания (несущие стены, в которых окна).
           Рисуется по периметру стен комнат (80..920 × 60..580), поверх комнат. */}
-      <g id="layer-outer-walls" pointerEvents="none">
-        <BuildingOutline rooms={rooms} outline={floor.outline} />
-      </g>
+      {!raw && (
+        <g id="layer-outer-walls" pointerEvents="none">
+          <BuildingOutline rooms={rooms} outline={floor.outline} />
+        </g>
+      )}
 
       {/* Слой 3c: Окна — поверх внешнего контура, прорезают толстую стену
           (белый проём + тонкая линия стекла). Архитектурное обозначение. */}
-      <g id="layer-windows" pointerEvents="none">
-        {rooms.flatMap((room) =>
-          (room.windows ?? []).map((win, i) => (
-            <ArchWindow key={`${room.id}-win-${i}`} win={win} />
-          ))
-        )}
-        {/* Двери на периметре (внешние входы) — прорезают толстую внешнюю стену. */}
-        {rooms.flatMap((room) =>
-          (room.doors ?? [])
-            .filter((d) => isOuterDoor(d))
-            .map((door, i) => (
-              <OuterDoorCut key={`${room.id}-od-${i}`} door={door} />
+      {!raw && (
+        <g id="layer-windows" pointerEvents="none">
+          {rooms.flatMap((room) =>
+            (room.windows ?? []).map((win, i) => (
+              <ArchWindow key={`${room.id}-win-${i}`} win={win} />
             ))
-        )}
-      </g>
+          )}
+          {/* Двери на периметре (внешние входы) — прорезают толстую внешнюю стену. */}
+          {rooms.flatMap((room) =>
+            (room.doors ?? [])
+              .filter((d) => isOuterDoor(d, outlineBox))
+              .map((door, i) => (
+                <OuterDoorCut key={`${room.id}-od-${i}`} door={door} />
+              ))
+          )}
+        </g>
+      )}
 
       {/* Слой 4: двери — условно, MVP (Roadmap) */}
 
@@ -111,11 +139,12 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
             <PlanObject
               key={obj.id}
               obj={obj}
-              selected={obj.id === selectedObjectId}
-              onSelect={onSelectObject}
+              selected={!raw && obj.id === selectedObjectId}
+              onSelect={raw ? undefined : onSelectObject}
               visible={visibleTypes ? visibleTypes.has(obj.type) : true}
               roomPolygon={room?.polygon}
-              clipId={room ? `clip-${room.id}` : undefined}
+              clipId={raw ? undefined : room ? `clip-${room.id}` : undefined}
+              raw={raw}
             />
           )
         })}
@@ -125,6 +154,35 @@ const FloorPlanSvg = observer(function FloorPlanSvg({
 })
 
 export default FloorPlanSvg
+
+/** Внутренняя стена (partition) — рисуется поверх всех заливок. */
+function InnerWall({ feat }) {
+  const pts = (feat.points ?? []).map((p) => `${p[0]},${p[1]}`).join(' ')
+  if (!pts) return null
+  const sw = feat.strokeWidth ?? 6
+  const gap = feat.doorGap
+  return (
+    <g>
+      <polyline
+        points={pts}
+        fill="none"
+        stroke="#1e293b"
+        strokeWidth={sw}
+        strokeLinecap="square"
+        strokeLinejoin="miter"
+      />
+      {gap && (
+        <rect
+          x={Math.min(gap[0], gap[2]) - 2}
+          y={Math.min(gap[1], gap[3]) - 2}
+          width={Math.abs(gap[2] - gap[0]) + 4}
+          height={Math.abs(gap[3] - gap[1]) + 4}
+          fill="#f1f5f9"
+        />
+      )}
+    </g>
+  )
+}
 
 /**
  * Жирный внешний контур здания (несущие стены по периметру, в которых окна).
@@ -184,7 +242,7 @@ function BuildingOutline({ rooms, outline }) {
  * Рисуется в слое layer-windows ПОСЛЕ внешнего контура, поэтому «вырезает» стену.
  */
 function ArchWindow({ win }) {
-  const { x, y, w, side } = win
+  const { x, y, w, side, blue } = win
   const half = w / 2
   const isVertical = side === 'left' || side === 'right'
   // Толщина «выреза» — чуть больше толщины внешней стены (8), чтобы полностью перекрыть
@@ -197,15 +255,17 @@ function ArchWindow({ win }) {
   const glass = isVertical
     ? { x1: x, y1: y - half + 1, x2: x, y2: y + half - 1 }
     : { x1: x - half + 1, y1: y, x2: x + half - 1, y2: y }
+  // Окна из конвертера — голубые (как в pen-плане), чтобы были заметны
+  const glassColor = blue ? '#7dd3fc' : '#475569'
   return (
     <g pointerEvents="none">
-      {/* Белый проём — «вырез» в стене */}
+      {/* Проём — белый (или голубой для конвертера) */}
       <rect
         x={cutRect.x}
         y={cutRect.y}
         width={cutRect.width}
         height={cutRect.height}
-        fill="#ffffff"
+        fill={blue ? '#e0f2fe' : '#ffffff'}
       />
       {/* Тонкая линия стекла */}
       <line
@@ -213,24 +273,41 @@ function ArchWindow({ win }) {
         y1={glass.y1}
         x2={glass.x2}
         y2={glass.y2}
-        stroke="#475569"
+        stroke={glassColor}
         strokeWidth="1.2"
       />
     </g>
   )
 }
 
+/** Bounding box всех комнат (периметр здания). */
+function roomsOutlineBox(rooms) {
+  if (!rooms.length) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const room of rooms) {
+    const bb = polygonBoundingBox(room.polygon)
+    if (bb.x < minX) minX = bb.x
+    if (bb.y < minY) minY = bb.y
+    if (bb.x + bb.width > maxX) maxX = bb.x + bb.width
+    if (bb.y + bb.height > maxY) maxY = bb.y + bb.height
+  }
+  return { minX, minY, maxX, maxY }
+}
+
 /**
- * Дверь считается «внешней» (на периметре здания), если её координаты
- * лежат на внешних стенах (y≈60 верх, y≈580 низ, x≈80 лево, x≈920 право).
- * Такие двери должны прорезать толстую внешнюю стену.
+ * Дверь на периметре здания — прорезает толстую внешнюю стену.
+ * Координаты сверяются с bbox комнат (не хардкод 80/60/920/580).
  */
-function isOuterDoor(door) {
-  const tol = 3
-  if (door.side === 'top' && Math.abs(door.y - 60) <= tol) return true
-  if (door.side === 'bottom' && Math.abs(door.y - 580) <= tol) return true
-  if (door.side === 'left' && Math.abs(door.x - 80) <= tol) return true
-  if (door.side === 'right' && Math.abs(door.x - 920) <= tol) return true
+function isOuterDoor(door, box) {
+  if (!box) return false
+  const tol = 6
+  if (door.side === 'top' && Math.abs(door.y - box.minY) <= tol) return true
+  if (door.side === 'bottom' && Math.abs(door.y - box.maxY) <= tol) return true
+  if (door.side === 'left' && Math.abs(door.x - box.minX) <= tol) return true
+  if (door.side === 'right' && Math.abs(door.x - box.maxX) <= tol) return true
   return false
 }
 

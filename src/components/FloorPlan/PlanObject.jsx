@@ -16,11 +16,15 @@ const MARKER_R = 16
  * Hover-scale применяется к ВНУТРЕННЕЙ группе маркера (без translate), чтобы CSS-transform
  * не конфликтовал с SVG-атрибутом transform (иначе объект «прыгает» в 0,0 при наведении).
  *
+ * В режиме raw — «некрасивая» отметка объекта: простой кружок, без иконки/конуса.
+ *
  * @param {{
  *   obj: object,
  *   selected?: boolean,
  *   visible?: boolean,
  *   onSelect?: (id: string) => void,
+ *   clipId?: string,
+ *   raw?: boolean,
  * }} props
  */
 export default function PlanObject({
@@ -29,6 +33,7 @@ export default function PlanObject({
   visible = true,
   onSelect,
   clipId,
+  raw = false,
 }) {
   const [hovered, setHovered] = useState(false)
   const Icon = OBJECT_ICONS[obj.type] ?? OBJECT_ICONS.atm
@@ -42,7 +47,7 @@ export default function PlanObject({
 
   // Конус обзора камеры рендерится в АБСОЛЮТНЫХ координатах (вне translate-группы маркера),
   // чтобы clipPath по полигону комнаты (тоже абсолютный) отсекал его ровно по стенам.
-  const showCone = obj.type === 'camera' && obj.details?.angle != null
+  const showCone = !raw && obj.type === 'camera' && obj.details?.angle != null
 
   return (
     <>
@@ -72,13 +77,14 @@ export default function PlanObject({
         transform={`translate(${obj.x}, ${obj.y})`}
         data-object-id={obj.id}
         className={styles.object}
-        onClick={handleClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
+        onClick={raw ? undefined : handleClick}
+        onMouseEnter={raw ? undefined : () => setHovered(true)}
+        onMouseLeave={raw ? undefined : () => setHovered(false)}
         role="button"
         tabIndex={0}
         aria-label={obj.name}
         onKeyDown={(e) => {
+          if (raw) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             handleClick()

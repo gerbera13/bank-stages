@@ -2,9 +2,26 @@ import { polygonToPoints, polygonCentroid } from '../../utils/geometry.js'
 import styles from './FloorPlan.module.css'
 
 /**
+ * Типы комнат, для которых в Defs.jsx объявлены пастельные градиенты
+ * (grad-room-<type>). Неизвестный тип — fallback на office.
+ */
+const GRAD_ROOM = {
+  hall: true,
+  office: true,
+  meeting: true,
+  server: true,
+  service: true,
+  cafe: true,
+  corridor: true,
+}
+
+/**
  * Рендер комнаты: полигон с градиентной заливкой, обводка стен, дверь (проём + дуга),
  * окна (двойная линия на внешней стене) и подпись на плашке.
  * См. specs/floor-plan-render.md.
+ *
+ * В режиме raw — «некрасивый» исходный чертёж: белая заливка, тонкая тёмная стена,
+ * подпись без плашки.
  *
  * @param {{
  *   room: {
@@ -12,10 +29,11 @@ import styles from './FloorPlan.module.css'
  *     polygon: [number,number][], labelAnchor?: [number,number],
  *     doors?: { x: number, y: number, w: number, side: 'top'|'bottom'|'left'|'right' }[],
  *     windows?: { x: number, y: number, w: number }[],
- *   }
+ *   },
+ *   raw?: boolean,
  * }} props
  */
-export default function Room({ room }) {
+export default function Room({ room, raw = false }) {
   const points = polygonToPoints(room.polygon)
   const center = room.labelAnchor
     ? { x: room.labelAnchor[0], y: room.labelAnchor[1] }
@@ -23,23 +41,30 @@ export default function Room({ room }) {
 
   const fontSize = room.labelFontSize ?? 14
   const labelWidth = Math.min(220, Math.max(70, room.name.length * (fontSize / 14) * 9 + 20))
+  // Конвертер кладёт внутренние стены как partition — тогда обводку полигона не рисуем
+  // (иначе «серая полоса» поверх толстой стены, make-stage.md §8.5 п.7).
+  const hasPartitions = (room.features ?? []).some((f) => f.type === 'partition')
 
   return (
     <g className={styles.room}>
-      {/* Заливка комнаты — плоская однотонная + мягкая тень для объёма. */}
+      {/* Заливка комнаты — пастельный градиент (сверху насыщеннее → снизу светлее,
+          объём + направление света сверху) + мягкая тень. Применяется автоматически
+          для любого этажа: градиент выбирается по room.type, fallback — office.
+          В raw-режиме — белая, без тени (некрасивый стандартный чертёж). */}
       <polygon
         points={points}
-        fill={`var(--color-room-${room.type})`}
-        filter="url(#filter-room-shadow)"
+        fill={raw ? '#ffffff' : `url(#grad-room-${Object.hasOwn(GRAD_ROOM, room.type) ? room.type : 'office'})`}
+        filter={raw ? undefined : 'url(#filter-room-shadow)'}
       />
-      {/* Внутренние перегородки — заметные, тёмно-серые (ярче для читаемости). */}
+      {/* Внутренние стены. Если есть partition-features — обводку гасим
+          (толстые стены уже рисует partition), иначе обычная обводка. */}
       <polygon
         className={styles.roomShape}
         points={points}
         fill="none"
-        stroke="#475569"
-        strokeWidth="1.5"
-        strokeLinejoin="miter"
+        stroke={raw ? '#1e293b' : hasPartitions ? 'none' : '#475569'}
+        strokeWidth={raw ? '2' : '1.5'}
+        strokeLinejoin={raw ? 'miter' : 'round'}
       />
 
       {/* Вырезы в стене (wallGaps): «стёртые» участки обводки — открытые проходы.
@@ -54,11 +79,13 @@ export default function Room({ room }) {
         <Door key={`door-${i}`} door={door} />
       ))}
 
-      {/* Элементы интерьера (features): перила, стойки, столики.
-          Каждый = { type, ... }. Рисуются с тенью для объёма. */}
-      {(room.features ?? []).map((feat, i) => (
-        <RoomFeature key={`feat-${i}`} feat={feat} />
-      ))}
+      {/* Элементы интерьера. partition рисуется в FloorPlanSvg (слой поверх всех комнат),
+          иначе соседняя заливка перекрывает стену на общем ребре. */}
+      {(room.features ?? [])
+        .filter((f) => f.type !== 'partition')
+        .map((feat, i) => (
+          <RoomFeature key={`feat-${i}`} feat={feat} />
+        ))}
 
       {/* Окна рендерятся в отдельном слое layer-windows (после внешнего контура),
           чтобы прорезать толстую внешнюю стену. */}
@@ -66,14 +93,14 @@ export default function Room({ room }) {
       {/* Подпись — только если имя не пустое (Тамбур/Санузел/Лифтовой холл без подписи) */}
       {room.name && (
         <g className={styles.roomLabel} transform={`translate(${center.x}, ${center.y})`}>
-          {room.name.length <= 2 ? (
-            // Короткая подпись (М/Ж) — без плашки, средним жирным шрифтом
+          {raw || room.name.length <= 2 ? (
+            // Raw-режим или короткая подпись (М/Ж) — без плашки, средним жирным шрифтом
             <text
               textAnchor="middle"
               dominantBaseline="central"
-              fontSize="18"
-              fontWeight="700"
-              fill="var(--color-text)"
+              fontSize={raw ? '11' : '18'}
+              fontWeight={raw ? '500' : '700'}
+              fill={raw ? '#334155' : 'var(--color-text)'}
             >
               {room.name}
             </text>
@@ -109,25 +136,25 @@ export default function Room({ room }) {
 }
 
 /**
- * Дверь: закрашивает участок стены цветом фона комнаты (создаёт «проём»),
- * плюс рисует дугу открывания — классическое архитектурное обозначение.
- * door.side определяет ориентацию: 'top'/'bottom' — горизонтальная стена, 'left'/'right' — вертикальная.
+ * Дверь. style: 'cross' — крест-полоски организации (make-stage.md §8.2 / §8.5 п.9);
+ * иначе — дуга открывания (классика).
  */
 function Door({ door }) {
-  const { x, y, w, side, doubleDoor } = door
+  const { x, y, w, side, doubleDoor, style } = door
+
+  if (style === 'cross') {
+    return <CrossDoor door={door} />
+  }
 
   // Двойная распашная дверь: две створки в РАЗНЫЕ стороны от центра.
-  // Левая створка — открывается вправо, правая — влево (обратное направление).
   if (doubleDoor) {
     const halfW = w / 2
-    const center = x // центр проёма
+    const center = x
     const leftDoor = { x: center - halfW / 2, y, w: halfW, side }
     const rightDoor = { x: center + halfW / 2, y, w: halfW, side }
     return (
       <g pointerEvents="none">
-        {/* Проём во всю ширину двойной двери */}
         <rect x={x - w / 2 - 1} y={side === 'bottom' ? y - 3 : y} width={w + 2} height={3} fill="#ffffff" rx="0.5" />
-        {/* Левая створка — вправо, правая — влево */}
         {makeDoorArc(leftDoor, false)}
         {makeDoorArc(rightDoor, true)}
       </g>
@@ -135,8 +162,6 @@ function Door({ door }) {
   }
 
   const half = w / 2
-
-  // Проём: белый прямоугольник внутрь комнаты от стены.
   let gap
   if (side === 'top') {
     gap = <rect x={x - half - 1} y={y} width={w + 2} height={3} fill="#ffffff" rx="0.5" />
@@ -145,16 +170,77 @@ function Door({ door }) {
   } else if (side === 'left') {
     gap = <rect x={x} y={y - half - 1} width={3} height={w + 2} fill="#ffffff" rx="0.5" />
   } else {
-    // right
     gap = <rect x={x - 3} y={y - half - 1} width={3} height={w + 2} fill="#ffffff" rx="0.5" />
   }
-
-  const arc = makeDoorArc(door)
 
   return (
     <g pointerEvents="none">
       {gap}
-      {arc}
+      {makeDoorArc(door)}
+    </g>
+  )
+}
+
+/**
+ * Дверь-крестик (стиль организации): полоска поперёк проёма + линия перпендикулярно стене.
+ * §8.5 п.9: на H-стене планка 22×6 + линия 1.2×26; на V-стене планка 20×6 поперёк + линия 26.
+ */
+function CrossDoor({ door }) {
+  const { x, y, side } = door
+  const isH = side === 'top' || side === 'bottom'
+  // Единые размеры (чуть крупнее для читаемости на конвертере)
+  const plankW = isH ? 22 : 6
+  const plankH = isH ? 6 : 20
+  const lineLen = 26
+  const lineT = 1.4
+
+  // Светлый проём в толще стены
+  const cut = isH ? (
+    <rect x={x - 12} y={y - 5} width={24} height={10} fill="#f1f5f9" />
+  ) : (
+    <rect x={x - 5} y={y - 12} width={10} height={24} fill="#f1f5f9" />
+  )
+
+  // Планка поперёк проёма (#334155 / #cbd5e1)
+  const plank = (
+    <rect
+      x={x - plankW / 2}
+      y={y - plankH / 2}
+      width={plankW}
+      height={plankH}
+      fill="#334155"
+      rx="0.5"
+    />
+  )
+
+  // Линия перпендикулярно стене (крест)
+  const line = isH ? (
+    <line
+      x1={x}
+      y1={y - lineLen / 2}
+      x2={x}
+      y2={y + lineLen / 2}
+      stroke="#475569"
+      strokeWidth={lineT}
+      strokeLinecap="round"
+    />
+  ) : (
+    <line
+      x1={x - lineLen / 2}
+      y1={y}
+      x2={x + lineLen / 2}
+      y2={y}
+      stroke="#475569"
+      strokeWidth={lineT}
+      strokeLinecap="round"
+    />
+  )
+
+  return (
+    <g pointerEvents="none">
+      {cut}
+      {plank}
+      {line}
     </g>
   )
 }
@@ -323,28 +409,27 @@ function RoomFeature({ feat }) {
     )
   }
   if (feat.type === 'partition') {
-    // Внутренняя перегородка — разделяет кабинет. Прямая стена с проёмом (дверью).
-    // points — точки перегородки (ломаная); doorGap — координаты проёма [x1,y1,x2,y2].
+    // Внутренняя стена — толстая тёмная (несущая/перегородка).
     const pts = (feat.points ?? []).map((p) => `${p[0]},${p[1]}`).join(' ')
     const gap = feat.doorGap
+    const sw = feat.strokeWidth ?? 6
     return (
       <g pointerEvents="none">
         <polyline
           points={pts}
           fill="none"
-          stroke="#475569"
-          strokeWidth="3"
-          strokeLinecap="round"
-          filter="url(#filter-room-shadow)"
+          stroke="#1e293b"
+          strokeWidth={sw}
+          strokeLinecap="square"
+          strokeLinejoin="miter"
         />
-        {/* Проём в перегородке */}
         {gap && (
           <rect
             x={Math.min(gap[0], gap[2]) - 2}
             y={Math.min(gap[1], gap[3]) - 2}
             width={Math.abs(gap[2] - gap[0]) + 4}
             height={Math.abs(gap[3] - gap[1]) + 4}
-            fill="#fef3c7"
+            fill="#f1f5f9"
           />
         )}
       </g>
@@ -424,20 +509,121 @@ function RoomFeature({ feat }) {
     )
   }
   if (feat.type === 'chair') {
-    // Кресло — квадрат со скруглёнными углами + тень.
-    const { x, y } = feat
+    // Кресло — скруглённый прямоугольник по реальным w/h.
+    const { x, y, w = 16, h = 16 } = feat
+    const rw = Math.max(10, w)
+    const rh = Math.max(10, h)
     return (
       <g pointerEvents="none" filter="url(#filter-room-shadow)">
-        <rect x={x - 8} y={y - 8} width="16" height="16" rx="4" fill="#e0e7ff" stroke="#6366f1" strokeWidth="1" />
+        <rect
+          x={x - rw / 2}
+          y={y - rh / 2}
+          width={rw}
+          height={rh}
+          rx="4"
+          fill="#e0e7ff"
+          stroke="#6366f1"
+          strokeWidth="1"
+        />
       </g>
     )
   }
   if (feat.type === 'table') {
     // Столик — круг (x, y, r) + тень.
-    const { x, y, r = 10 } = feat
+    const { x, y, r = 10, w, h } = feat
+    const rr = r || Math.max(8, Math.round(Math.max(w ?? 16, h ?? 16) / 2))
     return (
       <g pointerEvents="none" filter="url(#filter-room-shadow)">
-        <circle cx={x} cy={y} r={r} fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.2" />
+        <circle cx={x} cy={y} r={rr} fill="#f8fafc" stroke="#94a3b8" strokeWidth="1.2" />
+      </g>
+    )
+  }
+  if (feat.type === 'toilet') {
+    // Унитаз: чаша-овал + бачок у стены (tankDir), голубые §8.5 п.2.
+    const { x, y, w = 14, h = 10, tankDir = 'right' } = feat
+    const rx = w / 2
+    const ry = h / 2
+    const tankW = Math.max(5, Math.round(Math.min(w, h) * 0.45))
+    const tankH = Math.max(6, Math.round(Math.max(w, h) * 0.55))
+    let tank
+    if (tankDir === 'left') {
+      tank = { x: x - rx - tankW + 1, y: y - tankH / 2, w: tankW, h: tankH }
+    } else if (tankDir === 'up') {
+      tank = { x: x - tankH / 2, y: y - ry - tankW + 1, w: tankH, h: tankW }
+    } else if (tankDir === 'down') {
+      tank = { x: x - tankH / 2, y: y + ry - 1, w: tankH, h: tankW }
+    } else {
+      tank = { x: x + rx - 1, y: y - tankH / 2, w: tankW, h: tankH }
+    }
+    return (
+      <g pointerEvents="none">
+        <ellipse cx={x} cy={y} rx={rx} ry={ry} fill="#e0f2fe" stroke="#38bdf8" strokeWidth="1.2" />
+        <rect
+          x={tank.x}
+          y={tank.y}
+          width={tank.w}
+          height={tank.h}
+          rx="1.5"
+          fill="#e0f2fe"
+          stroke="#38bdf8"
+          strokeWidth="1.2"
+        />
+      </g>
+    )
+  }
+  if (feat.type === 'sink') {
+    // Раковина: полукруг (плоская сторона к стене, выпуклость в комнату).
+    const { x, y, w = 16, h = 9, dir = 'left' } = feat
+    const r = w / 2
+    let pathD
+    if (dir === 'left') {
+      pathD = `M ${x + r} ${y - h / 2} A ${r} ${h / 2} 0 0 0 ${x + r} ${y + h / 2} Z`
+    } else if (dir === 'right') {
+      pathD = `M ${x - r} ${y - h / 2} A ${r} ${h / 2} 0 0 1 ${x - r} ${y + h / 2} Z`
+    } else if (dir === 'up') {
+      pathD = `M ${x - w / 2} ${y + h / 2} A ${w / 2} ${h / 2} 0 0 1 ${x + w / 2} ${y + h / 2} Z`
+    } else {
+      pathD = `M ${x - w / 2} ${y - h / 2} A ${w / 2} ${h / 2} 0 0 0 ${x + w / 2} ${y - h / 2} Z`
+    }
+    return (
+      <g pointerEvents="none">
+        <path d={pathD} fill="#e0f2fe" stroke="#38bdf8" strokeWidth="1.2" />
+      </g>
+    )
+  }
+  if (feat.type === 'awning') {
+    // Козырёк/навес над входом: полупрозрачный полигон + тень (приём §8.5).
+    const { x, y, w = 60, h = 30 } = feat
+    return (
+      <g pointerEvents="none">
+        <polygon
+          points={`${x},${y + h} ${x},${y + h * 0.35} ${x + w},${y + h * 0.35} ${x + w},${y + h}`}
+          fill="#94a3b8"
+          fillOpacity="0.85"
+          stroke="#475569"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+          filter="url(#filter-room-shadow)"
+        />
+        {/* Кромка навеса */}
+        <line x1={x} y1={y + h * 0.35} x2={x + w} y2={y + h * 0.35} stroke="#475569" strokeWidth="2" />
+      </g>
+    )
+  }
+  if (feat.type === 'stairs') {
+    // Лестница: вертикальная направляющая + равные ступени (приём §8.5 п.8).
+    const { x, y, step = 16, count = 8, len = 24, dir = 'right' } = feat
+    const treads = []
+    for (let i = 0; i < count; i++) {
+      const ty = y + i * step
+      const x0 = dir === 'right' ? x : x - len
+      treads.push(<line key={i} x1={x0} y1={ty} x2={x0 + len} y2={ty} stroke="#94a3b8" strokeWidth="3" />)
+    }
+    return (
+      <g pointerEvents="none">
+        {/* Направляющая */}
+        <line x1={x} y1={y - 4} x2={x} y2={y + count * step + 4} stroke="#475569" strokeWidth="2.5" />
+        {treads}
       </g>
     )
   }

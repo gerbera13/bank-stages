@@ -1,4 +1,5 @@
 import { building } from '../data/building.js'
+import { BlueprintStore } from './BlueprintStore.js'
 import { UiStore } from './UiStore.js'
 import { SelectionStore } from './SelectionStore.js'
 
@@ -8,9 +9,15 @@ import { SelectionStore } from './SelectionStore.js'
  */
 export class RootStore {
   constructor() {
-    // building — константа (мок), observable не нужен
-    this.building = building
+    // Мок-здание «Меридиан» (см. ADR-008); подменяется импортом чертежа
+    this.defaultBuilding = building
+    this.blueprint = new BlueprintStore(this)
     this.ui = new UiStore(this)
     this.selection = new SelectionStore(this)
+  }
+
+  /** Активное здание: импортированный чертёж или мок */
+  get building() {
+    return this.blueprint.building
   }
 }

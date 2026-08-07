@@ -1,0 +1,214 @@
+/* ============================================================
+   ImportPanel — загрузка «сырого чертежа»
+   ============================================================ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  font: 600 13px var(--font-sans);
+  color: var(--color-text);
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.toggle:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.badge {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: #fff;
+  font: 600 10px var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.chevron,
+.chevronOpen {
+  transition: transform var(--duration-fast) var(--ease-out);
+  opacity: 0.6;
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-subtle);
+  text-align: center;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.dropzoneActive {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.dropText {
+  margin: 0;
+  font: var(--font-label);
+  color: var(--color-text-muted);
+}
+
+.fileBtn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.fileBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.fileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.pasteLabel {
+  font: var(--font-label);
+  color: var(--color-text-muted);
+}
+
+.textarea {
+  width: 100%;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font: 400 11px/1.45 var(--font-mono, var(--font-sans));
+  color: var(--color-text);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.actionBtn {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+  transition:
+    opacity var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.actionBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.demoRow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.demoBtn,
+.resetBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font: 600 11px var(--font-sans);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out);
+}
+
+.demoBtn {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.demoBtn:hover {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+}
+
+.resetBtn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.resetBtn:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+.error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: #fef2f2;
+  color: #b91c1c;
+  font: var(--font-label);
+}
+
+.success {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: #ecfdf5;
+  color: #047857;
+  font: var(--font-label);
+}

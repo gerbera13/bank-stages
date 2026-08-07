@@ -32,16 +32,27 @@
   box-shadow: var(--shadow-sm);
 }
 
+.titleBlock {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .title {
   font: var(--font-display);
   color: var(--color-text);
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subtitle {
   font: var(--font-caption);
   color: var(--color-text-subtle);
   margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* --- Сайдбар --- */
@@ -56,6 +67,41 @@
   box-shadow: var(--shadow-md);
   padding: var(--space-5);
   overflow-y: auto;
+}
+
+/* --- Режимы (План / Конвертер) --- */
+.modeNav {
+  display: flex;
+  gap: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.modeBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font: var(--font-label);
+  color: var(--color-text-muted);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  transition:
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.modeBtn:hover {
+  color: var(--color-text);
+}
+
+.modeBtnActive {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 /* --- Область плана --- */
