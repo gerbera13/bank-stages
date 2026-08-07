@@ -8,9 +8,10 @@
  * Приёмы обработки зафиксированы в make-stage.md §8.5.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Upload, Image as ImageIcon, Download, RotateCcw } from 'lucide-react'
+import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
+import { vectorizeWalls } from '../../utils/wallVectorizer.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -78,6 +79,9 @@ export default function Converter() {
   const [fileName, setFileName] = useState(null)
   // Портретный чертёж развёрнут в горизонт — сообщаем об этом явно
   const [rotated, setRotated] = useState(false)
+  // Первая веха нового движка: найденные стены поверх исходника (только показ)
+  const [vectors, setVectors] = useState(null)
+  const [showVectors, setShowVectors] = useState(false)
   // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
   const urlRef = useRef(null)
 
@@ -114,6 +118,12 @@ export default function Converter() {
       const raw = toRawBlueprint(ext, scale, ox, oy)
       const building = parseBlueprint(raw)
       setFloor(building.floors[0])
+      // Векторизатор работает на том же кадре — наложение совпадёт с «Было»
+      try {
+        setVectors(vectorizeWalls(imgData))
+      } catch {
+        setVectors(null)
+      }
       // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
       blueprint.acceptConverted(raw, `чертёж «${name}»`)
     } catch (err) {
@@ -150,6 +160,7 @@ export default function Converter() {
     setError(null)
     setFileName(null)
     setRotated(false)
+    setVectors(null)
   }
 
   const stats = useMemo(() => {
@@ -248,6 +259,16 @@ export default function Converter() {
             </button>
             <button
               type="button"
+              className={`${styles.toolBtn} ${showVectors ? styles.toolBtnOn : ''}`}
+              onClick={() => setShowVectors((v) => !v)}
+              disabled={!vectors}
+              title="Первая веха нового движка: найденные стены поверх исходника"
+            >
+              <Ruler size={14} />
+              Стены{vectors ? ` (${vectors.walls.length})` : ''}
+            </button>
+            <button
+              type="button"
               className={styles.toolBtn}
               onClick={handleExport}
               disabled={!floor}
@@ -265,7 +286,29 @@ export default function Converter() {
               <section className={styles.pane}>
                 <h3 className={styles.paneTitle}>Было — исходный чертёж</h3>
                 <div className={styles.imageWrap}>
-                  <img src={originalUrl} alt="Исходный чертёж" className={styles.image} />
+                  <div className={styles.imageStack}>
+                    <img src={originalUrl} alt="Исходный чертёж" className={styles.image} />
+                    {showVectors && vectors && (
+                      <svg
+                        className={styles.overlay}
+                        viewBox={`0 0 ${vectors.w} ${vectors.h}`}
+                        preserveAspectRatio="none"
+                      >
+                        {vectors.walls.map((wall, i) => (
+                          <line
+                            key={i}
+                            x1={wall.x1}
+                            y1={wall.y1}
+                            x2={wall.x2}
+                            y2={wall.y2}
+                            stroke={wall.paired ? '#e11d48' : '#0ea5e9'}
+                            strokeWidth={wall.paired ? 2 : 1}
+                            strokeOpacity="0.85"
+                          />
+                        ))}
+                      </svg>
+                    )}
+                  </div>
                 </div>
               </section>
               <section className={styles.pane}>
