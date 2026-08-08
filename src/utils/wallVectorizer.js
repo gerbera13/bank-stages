@@ -436,7 +436,13 @@ function pairFaces(segments, maxThickness, ink, w, h) {
       const b = segments[j]
       let dTheta = Math.abs(a.theta - b.theta)
       dTheta = Math.min(dTheta, Math.PI - dTheta)
-      if (dTheta > 0.09) continue // ~5°
+      // У коротких отрезков направление меряется грубее: две грани скошенного
+      // угла коттеджа (по 25–35 px) вышли под 132° и 147°, и при допуске 5°
+      // не спаривались. Тогда угол оставался двумя линиями, между ними
+      // замыкалась щель, и контур делал шип наружу и обратно.
+      const shortest = Math.min(len(a), len(b))
+      const tol = shortest < maxThickness * 4 ? 0.3 : 0.09
+      if (dTheta > tol) continue
       // расстояние между параллельными прямыми
       const [mx, my] = mid(b)
       const nx = Math.cos(a.theta)
