@@ -14,7 +14,7 @@
 import { vectorizeWalls } from './wallVectorizer.js'
 import { buildRooms } from './planarRooms.js'
 import { findOpenings, findStairFlights } from './planFeatures.js'
-import { fitPlanTransform } from './planExtractor.js'
+import { fitPlanTransform, collectDetails } from './planExtractor.js'
 
 /** Полная векторная разборка чертежа. */
 export function extractPlanVector(imageData) {
@@ -62,11 +62,50 @@ export function extractPlanVector(imageData) {
     )
   })
   const { doors, windows } = findOpenings(vec.walls, vec.inkHard, vec.w, vec.h, rooms)
+
+  // Содержимое комнат — унитазы, раковины, мебель — разбирает общий с старым
+  // движком код: геометрия у движков разная, а «что нарисовано внутри
+  // комнаты» одно и то же. Ему нужны маска стен и комнаты прямоугольниками.
+  const wallMask = rasterizeWalls(vec.walls, vec.w, vec.h)
+  const rects = rooms.map((r) => bboxOf(r.polygon))
+  const stairMarks = flights.map((f) => ({
+    x: (Math.min(...f.treads.map((t) => t.x1)) + Math.max(...f.treads.map((t) => t.x2))) / 2,
+    y: (Math.min(...f.treads.map((t) => t.y1)) + Math.max(...f.treads.map((t) => t.y2))) / 2,
+  }))
+  let details = { sanitary: [], furniture: [], roomMeta: rects.map(() => ({})) }
+  try {
+    details = collectDetails(vec.ink, wallMask, vec.w, vec.h, rects, stairMarks)
+  } catch {
+    // разбор содержимого — необязательная часть: геометрия важнее
+  }
   const ms =
     started === null
       ? null
       : Math.round((performance.now() - started) * 10) / 10
-  return { vec, rooms, outline, doors, windows, flights, ms }
+  return { vec, rooms, outline, doors, windows, flights, details, ms }
+}
+
+/** Стены в растровую маску — по ней ищется содержимое комнат. */
+function rasterizeWalls(walls, w, h) {
+  const mask = new Uint8Array(w * h)
+  for (const wall of walls) {
+    const dx = wall.x2 - wall.x1
+    const dy = wall.y2 - wall.y1
+    const len = Math.hypot(dx, dy)
+    if (len < 1) continue
+    const ux = dx / len
+    const uy = dy / len
+    const half = Math.max(1, Math.round((wall.thickness ?? 2) / 2))
+    for (let t = 0; t <= len; t++) {
+      for (let n = -half; n <= half; n++) {
+        const x = Math.round(wall.x1 + ux * t - uy * n)
+        const y = Math.round(wall.y1 + uy * t + ux * n)
+        if (x < 0 || y < 0 || x >= w || y >= h) continue
+        mask[y * w + x] = 1
+      }
+    }
+  }
+  return mask
 }
 
 /** Габариты по всем полигонам комнат (плюс контур, если он есть). */
@@ -233,6 +272,46 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   }
   for (const d of v.doors) attach(d, 'door')
   for (const wnd of v.windows) attach(wnd, 'window')
+
+  // Сантехника: приборы делают помещение санузлом, бачок унитаза — к стене.
+  // Мебель из общего разбора сюда НЕ идёт. На демо она даёт пять предметов
+  // там, где на чертеже нет ни одного: три «стула» садятся на подписи
+  // кабинетов, один на подпись нижнего ряда, «стойка» — в лестничную шахту.
+  // Отсев подписей в общем коде опирается на разбиение по комнатам, а оно
+  // у движков разное. Пока честнее не рисовать мебель совсем.
+  for (const item of v.details?.sanitary ?? []) {
+    let best = -1
+    let bestD = Infinity
+    for (let i = 0; i < rooms.length; i++) {
+      if (!inside(v.rooms[i].polygon, item.x + item.w / 2, item.y + item.h / 2)) continue
+      const b = rooms[i].rect
+      const d = Math.hypot(b.x + b.w / 2 - tx(item.x), b.y + b.h / 2 - ty(item.y))
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    if (best < 0) continue
+    out[best].type = 'service'
+    const src = v.rooms[best].polygon
+    const sb = bboxOf(src)
+    const cx = item.x + item.w / 2
+    const cy = item.y + item.h / 2
+    const dl = cx - sb.x
+    const dr = sb.x + sb.w - cx
+    const dt = cy - sb.y
+    const db = sb.y + sb.h - cy
+    const m = Math.min(dl, dr, dt, db)
+    const tankDir = m === dl ? 'left' : m === dr ? 'right' : m === dt ? 'up' : 'down'
+    out[best].features.push({
+      type: item.type,
+      x: tx(item.x),
+      y: ty(item.y),
+      w: Math.max(10, tw(item.w)),
+      h: Math.max(10, tw(item.h)),
+      ...(item.type === 'toilet' ? { tankDir } : { wallDir: tankDir }),
+    })
+  }
 
   // Лестницы. Марш внутри помещения — его деталь; марш снаружи (наружное
   // крыльцо) старому движку был недоступен в принципе, здесь он становится

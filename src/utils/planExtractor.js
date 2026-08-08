@@ -1867,7 +1867,12 @@ function sameCorridorBand(r, band) {
 /**
  * Собрать roomMeta + sanitary/furniture из ink-блобов.
  */
-function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
+/**
+ * Сантехника, мебель и признаки помещений по чернилам внутри комнат.
+ * Экспортируется, потому что новый (векторный) движок переиспользует её
+ * целиком: геометрия у движков разная, а разбор содержимого комнаты — общий.
+ */
+export function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
   const sanitary = []
   const furniture = []
   // Подписи ищем сразу по всему плану: строки одной подписи могут выходить
