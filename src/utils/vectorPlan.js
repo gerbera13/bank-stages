@@ -21,9 +21,47 @@ export function extractPlanVector(imageData) {
   const started =
     typeof performance !== 'undefined' && performance.now ? performance.now() : null
   const vec = vectorizeWalls(imageData)
-  const { rooms, outline } = buildRooms(vec.walls, vec.w, vec.h)
-  const { doors, windows } = findOpenings(vec.walls, vec.inkHard, vec.w, vec.h, rooms)
   const flights = findStairFlights(vec.rawSegments ?? vec.segments ?? [], vec.w, vec.h)
+  const built = buildRooms(vec.walls, vec.w, vec.h)
+  const outline = built.outline
+  // Промежутки между ступенями — тоже замкнутые грани, и планарный обход
+  // честно выдаёт их за помещения: на коттедже из 21 «комнаты» семь были
+  // щелями марша размером 47×12. Марш считается один раз, как лестница.
+  const shafts = flights.map((f) => {
+    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
+    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
+    const x0 = Math.min(...xs)
+    const y0 = Math.min(...ys)
+    const x1 = Math.max(...xs)
+    const y1 = Math.max(...ys)
+    // Марш находится не всегда целиком: на коттедже распознались пять ступеней
+    // из девяти, и щели остальных снова стали «комнатами». Зону тянем вдоль
+    // хода марша — поперёк ступеней, — оставляя ширину по ступени.
+    // Ход марша — ПОПЕРЁК ступеней. По пропорциям габарита его не определить:
+    // ступени длинные, и коробка марша шире, чем он сам длинный.
+    const t0 = f.treads[0]
+    const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
+    const horizontal = !treadHorizontal
+    const grow = (horizontal ? x1 - x0 : y1 - y0) * 0.8
+    const tread = horizontal ? y1 - y0 : x1 - x0
+    return {
+      x0: horizontal ? x0 - grow : x0,
+      x1: horizontal ? x1 + grow : x1,
+      y0: horizontal ? y0 : y0 - grow,
+      y1: horizontal ? y1 : y1 + grow,
+      tread: Math.max(tread, 1),
+    }
+  })
+  const rooms = built.rooms.filter((r) => {
+    const b = bboxOf(r.polygon)
+    const cx = b.x + b.w / 2
+    const cy = b.y + b.h / 2
+    const thin = Math.min(b.w, b.h)
+    return !shafts.some(
+      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && thin < s.tread,
+    )
+  })
+  const { doors, windows } = findOpenings(vec.walls, vec.inkHard, vec.w, vec.h, rooms)
   const ms =
     started === null
       ? null

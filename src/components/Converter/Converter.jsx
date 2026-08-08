@@ -20,10 +20,7 @@ import {
 } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
-import { vectorizeWalls } from '../../utils/wallVectorizer.js'
-import { buildRooms } from '../../utils/planarRooms.js'
-import { findOpenings, findStairFlights } from '../../utils/planFeatures.js'
-import { toRawBlueprintVector } from '../../utils/vectorPlan.js'
+import { extractPlanVector, toRawBlueprintVector } from '../../utils/vectorPlan.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -141,20 +138,14 @@ export default function Converter() {
       setFloor(building.floors[0])
       // Векторизатор работает на том же кадре — наложение совпадёт с «Было»
       try {
-        const v = vectorizeWalls(imgData)
-        const built = buildRooms(v.walls, v.w, v.h)
-        setVectors(v)
-        setNewRooms(built)
-        const found = {
-          ...findOpenings(v.walls, v.inkHard, v.w, v.h, built.rooms),
-          flights: findStairFlights(v.rawSegments, v.w, v.h),
-        }
-        setFeats(found)
+        // Один и тот же разбор и для наложений, и для панели «Стало» —
+        // иначе счётчики на кнопках расходятся с тем, что нарисовано.
+        const parsed = extractPlanVector(imgData)
+        setVectors(parsed.vec)
+        setNewRooms({ rooms: parsed.rooms, outline: parsed.outline })
+        setFeats({ doors: parsed.doors, windows: parsed.windows, flights: parsed.flights })
         try {
-          const rawV = toRawBlueprintVector(
-            { vec: v, rooms: built.rooms, outline: built.outline, ...found },
-            `Конвертер (новый движок): ${name}`,
-          )
+          const rawV = toRawBlueprintVector(parsed, `Конвертер (новый движок): ${name}`)
           setRawNew(rawV)
           setFloorNew(parseBlueprint(rawV).floors[0])
         } catch {
