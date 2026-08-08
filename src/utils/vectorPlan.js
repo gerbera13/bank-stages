@@ -84,14 +84,28 @@ function inside(poly, x, y) {
 function assignTypes(rooms, plan) {
   const order = rooms.map((r, i) => ({ i, area: r.area })).sort((a, b) => b.area - a.area)
   const types = rooms.map(() => 'office')
+  // Сколько помещений примыкает к каждому. Коридор узнаётся не размерами —
+  // лестничная шахта режет его на короткие куски, и порог по длине его
+  // не ловит, — а тем, что к нему примыкает много комнат сразу.
+  const touch = 8
+  const neighbours = rooms.map((r, i) =>
+    rooms.reduce((acc, o, j) => {
+      if (i === j) return acc
+      const a = r.rect
+      const b = o.rect
+      const near =
+        a.x - touch <= b.x + b.w &&
+        b.x - touch <= a.x + a.w &&
+        a.y - touch <= b.y + b.h &&
+        b.y - touch <= a.y + a.h
+      return near ? acc + 1 : acc
+    }, 0),
+  )
   for (let k = 0; k < rooms.length; k++) {
     const r = rooms[k]
     const thin = Math.min(r.rect.w, r.rect.h)
     const long = Math.max(r.rect.w, r.rect.h)
-    // лента: тонкая, длинная и заметная по протяжённости — это коридор
-    // лестничная шахта режет коридор на куски, поэтому порог по длине
-    // низкий: каждый кусок сам по себе короткий, но всё ещё лента
-    if (thin <= plan.h * 0.16 && long >= plan.w * 0.22 && long / thin >= 3) types[k] = 'corridor'
+    if (long / thin >= 2.5 && neighbours[k] >= 4 && thin <= plan.h * 0.22) types[k] = 'corridor'
     else if (r.area <= plan.w * plan.h * 0.012) types[k] = 'service'
   }
   let meetings = 0
