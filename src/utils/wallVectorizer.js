@@ -383,7 +383,44 @@ function mergeCollinear(segments, angleTol, offsetTol, gapTol) {
  * На чертежах стену рисуют двумя линиями: без этого шага движок видит две
  * разные стены и пустоту между ними — из-за чего заливка комнат течёт.
  */
-function pairFaces(segments, maxThickness) {
+/**
+ * Настоящая ли это пара граней одной стены — проверяем по чернилам.
+ * Осевая линия должна идти ВНУТРИ стены: чернила есть и выше её, и ниже.
+ * Ложная пара (длинная стена + случайный обрубок) уводит осевую в пустоту,
+ * и тогда чернила лежат только с одной стороны.
+ */
+function pairLooksReal(x1, y1, x2, y2, thickness, ink, w, h) {
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const len = Math.hypot(dx, dy)
+  if (len < 2) return true
+  const ux = dx / len
+  const uy = dy / len
+  const nx = -uy
+  const ny = ux
+  const half = Math.max(2, Math.round(thickness / 2) + 1)
+  const samples = Math.min(60, Math.max(8, Math.round(len / 4)))
+  let ok = 0
+  for (let k = 0; k < samples; k++) {
+    const t = (len * k) / (samples - 1 || 1)
+    const px = x1 + ux * t
+    const py = y1 + uy * t
+    let up = false
+    let down = false
+    for (let n = -half; n <= half; n++) {
+      const x = Math.round(px + nx * n)
+      const y = Math.round(py + ny * n)
+      if (x < 0 || y < 0 || x >= w || y >= h) continue
+      if (!ink[y * w + x]) continue
+      if (n < 0) up = true
+      if (n > 0) down = true
+    }
+    if (up && down) ok++
+  }
+  return ok >= samples * 0.5
+}
+
+function pairFaces(segments, maxThickness, ink, w, h) {
   const used = new Set()
   const walls = []
   const mid = (s) => [(s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2]
@@ -420,8 +457,6 @@ function pairFaces(segments, maxThickness) {
       // в 18 px у лестничной шахты, осевая уезжала на 6 px в пустоту, и вся
       // стена читалась как несплошная — двери нижнего ряда пропадали.
       if (overlap < Math.min(len(a), len(b)) * 0.5) continue
-      // ...и грани должны быть сопоставимой длины: обрубок ≠ вторая грань.
-      if (Math.min(len(a), len(b)) < Math.max(len(a), len(b)) * 0.25) continue
       if (dist < mateDist) {
         mateDist = dist
         mate = j
@@ -429,8 +464,6 @@ function pairFaces(segments, maxThickness) {
     }
     if (mate >= 0) {
       const b = segments[mate]
-      used.add(i)
-      used.add(mate)
       // Осевая линия — по ОБЪЕДИНЕНИЮ граней вдоль стены, не по среднему их
       // концов. Грани двойной стены редко одинаковой длины: у демо нижняя
       // стена коридора идёт x24..586, а верхняя только x166..456, и среднее
@@ -451,14 +484,20 @@ function pairFaces(segments, maxThickness) {
       const t0 = Math.min(...ts)
       const t1 = Math.max(...ts)
       const off = (across(a.x1, a.y1) + across(b.x1, b.y1)) / 2
-      walls.push({
-        x1: dx * t0 + nx * off,
-        y1: dy * t0 + ny * off,
-        x2: dx * t1 + nx * off,
-        y2: dy * t1 + ny * off,
-        thickness: mateDist,
-        paired: true,
-      })
+      const wx1 = dx * t0 + nx * off
+      const wy1 = dy * t0 + ny * off
+      const wx2 = dx * t1 + nx * off
+      const wy2 = dy * t1 + ny * off
+      if (pairLooksReal(wx1, wy1, wx2, wy2, mateDist, ink, w, h)) {
+        used.add(i)
+        used.add(mate)
+        walls.push({ x1: wx1, y1: wy1, x2: wx2, y2: wy2, thickness: mateDist, paired: true })
+      } else {
+        // Пара не подтвердилась — грань идёт в стены сама по себе,
+        // а её несостоявшийся напарник остаётся свободным для других пар.
+        used.add(i)
+        walls.push({ x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, thickness: 1, paired: false })
+      }
     } else {
       used.add(i)
       walls.push({ x1: a.x1, y1: a.y1, x2: a.x2, y2: a.y2, thickness: 1, paired: false })
@@ -538,7 +577,13 @@ export function vectorizeWalls(imageData) {
     Math.max(12, Math.round(minSide * 0.1)),
   )
 
-  const walls = pairFaces(whole, Math.max(10, Math.round(minSide * 0.06))).map((wall) => {
+  const walls = pairFaces(
+    whole,
+    Math.max(10, Math.round(minSide * 0.06)),
+    inkHard,
+    w,
+    h,
+  ).map((wall) => {
     if (wall.paired) return wall
     const mx = Math.round((wall.x1 + wall.x2) / 2)
     const my = Math.round((wall.y1 + wall.y2) / 2)

@@ -187,6 +187,17 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   // объектом этажа и виден на плане.
   const objects = []
   for (const f of v.flights) {
+    // Марш целиком вне пятна застройки и не примыкающий к нему — это не
+    // лестница, а штриховка на полях чертежа.
+    if (v.outline) {
+      const anyInside = f.treads.some(
+        (t) =>
+          inside(v.outline, (t.x1 + t.x2) / 2, (t.y1 + t.y2) / 2) ||
+          inside(v.outline, t.x1, t.y1) ||
+          inside(v.outline, t.x2, t.y2),
+      )
+      if (!anyInside) continue
+    }
     const xs = f.treads.flatMap((t) => [t.x1, t.x2])
     const ys = f.treads.flatMap((t) => [t.y1, t.y2])
     const x0 = Math.min(...xs)

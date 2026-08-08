@@ -168,6 +168,15 @@ export function findStairFlights(segments, w, h) {
     if (run.length >= minTreads) runs.push(run)
 
     for (const r of runs) {
+      // Ступени марша ВЫРОВНЕНЫ: они лежат одна над другой, поэтому разброс
+      // их середин вдоль самой ступени невелик. Штриховка и размерные линии
+      // на чертежах БТИ идут такими же параллельными пачками с равным шагом,
+      // но раскиданы по всему листу: ступень 20 px при разбросе 370 px.
+      // Без этой проверки план покрывался полосатыми лентами во всю ширину.
+      const tread = r.reduce((acc, p) => acc + info[p.k].len, 0) / r.length
+      const alongs = r.map((p) => info[p.k].mx * a.ux + info[p.k].my * a.uy)
+      const spread = Math.max(...alongs) - Math.min(...alongs)
+      if (spread > tread) continue
       for (const p of r) used.add(p.k)
       const treads = r.map((p) => segments[p.k])
       flights.push({
