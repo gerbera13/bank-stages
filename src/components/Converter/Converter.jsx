@@ -8,12 +8,22 @@
  * Приёмы обработки зафиксированы в make-stage.md §8.5.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Upload, Image as ImageIcon, Download, RotateCcw, Ruler, Grid2x2, DoorOpen } from 'lucide-react'
+import {
+  Upload,
+  Image as ImageIcon,
+  Download,
+  RotateCcw,
+  Ruler,
+  Grid2x2,
+  DoorOpen,
+  Cpu,
+} from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { vectorizeWalls } from '../../utils/wallVectorizer.js'
 import { buildRooms } from '../../utils/planarRooms.js'
 import { findOpenings, findStairFlights } from '../../utils/planFeatures.js'
+import { toRawBlueprintVector } from '../../utils/vectorPlan.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -88,6 +98,11 @@ export default function Converter() {
   const [showRooms, setShowRooms] = useState(false)
   const [feats, setFeats] = useState(null)
   const [showFeats, setShowFeats] = useState(false)
+  // Стадия 5: тот же чертёж, разобранный новым движком целиком.
+  // Держим оба результата рядом — движки сравниваются переключателем.
+  const [floorNew, setFloorNew] = useState(null)
+  const [rawNew, setRawNew] = useState(null)
+  const [engine, setEngine] = useState('old')
   // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
   const urlRef = useRef(null)
 
@@ -130,14 +145,28 @@ export default function Converter() {
         const built = buildRooms(v.walls, v.w, v.h)
         setVectors(v)
         setNewRooms(built)
-        setFeats({
+        const found = {
           ...findOpenings(v.walls, v.inkHard, v.w, v.h, built.rooms),
           flights: findStairFlights(v.rawSegments, v.w, v.h),
-        })
+        }
+        setFeats(found)
+        try {
+          const rawV = toRawBlueprintVector(
+            { vec: v, rooms: built.rooms, outline: built.outline, ...found },
+            `Конвертер (новый движок): ${name}`,
+          )
+          setRawNew(rawV)
+          setFloorNew(parseBlueprint(rawV).floors[0])
+        } catch {
+          setRawNew(null)
+          setFloorNew(null)
+        }
       } catch {
         setVectors(null)
         setNewRooms(null)
         setFeats(null)
+        setRawNew(null)
+        setFloorNew(null)
       }
       // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
       blueprint.acceptConverted(raw, `чертёж «${name}»`)
@@ -148,6 +177,10 @@ export default function Converter() {
     }
   }
 
+  // Какой разбор показываем справа. Пока движки живут параллельно:
+  // старый — опорный результат, новый — проверяемый.
+  const shownFloor = engine === 'new' && floorNew ? floorNew : floor
+
   const handleDrop = (e) => {
     e.preventDefault()
     const file = e.dataTransfer?.files?.[0]
@@ -155,9 +188,17 @@ export default function Converter() {
   }
 
   const handleExport = () => {
+    if (engine === 'new' && rawNew) {
+      downloadJson(rawNew)
+      return
+    }
     if (!extracted) return
     const { scale, ox, oy } = fitPlanTransform(extracted.bounds)
     const raw = toRawBlueprint(extracted, scale, ox, oy)
+    downloadJson(raw)
+  }
+
+  const downloadJson = (raw) => {
     const blob = new Blob([JSON.stringify(raw, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     const url = URL.createObjectURL(blob)
@@ -175,6 +216,9 @@ export default function Converter() {
     setError(null)
     setFileName(null)
     setRotated(false)
+    setFloorNew(null)
+    setRawNew(null)
+    setEngine('old')
     setVectors(null)
     setNewRooms(null)
     setFeats(null)
@@ -307,6 +351,16 @@ export default function Converter() {
             </button>
             <button
               type="button"
+              className={`${styles.toolBtn} ${engine === 'new' ? styles.toolBtnOn : ''}`}
+              onClick={() => setEngine((e) => (e === 'new' ? 'old' : 'new'))}
+              disabled={!floorNew}
+              title="Чем построена панель «Стало»: старый разбор по прямоугольникам или новый векторный"
+            >
+              <Cpu size={14} />
+              Движок: {engine === 'new' ? 'новый' : 'старый'}
+            </button>
+            <button
+              type="button"
               className={styles.toolBtn}
               onClick={handleExport}
               disabled={!floor}
@@ -396,7 +450,7 @@ export default function Converter() {
               <section className={styles.pane}>
                 <h3 className={styles.paneTitle}>Стало — красивый план</h3>
                 <div className={`${styles.planWrap} palette-draft`}>
-                  <FloorPlanSvg floor={floor} />
+                  <FloorPlanSvg floor={shownFloor} />
                 </div>
                 <p className={styles.hint}>
                   Черновик: подписи и типы комнат уточняются вручную (make-stage.md §8.1).

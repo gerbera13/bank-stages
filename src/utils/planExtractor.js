@@ -2854,9 +2854,10 @@ export function toRawBlueprint(extracted, scale = 1, ox = 0, oy = 0) {
       const isShaft = room.h <= flightH * 1.7 && room.w <= entry.len * 2.4
       if (isShaft) {
         entry.plate = { x: room.x + 3, y: room.y + 3, w: room.w - 6, h: room.h - 6 }
-        // Шаг подгоняем так, чтобы весь марш поместился в шахту: снизу поле
-        // больше, иначе ступени упираются в стену и лезут в оконный проём.
-        const padTop = 8
+        // Шаг подгоняем так, чтобы весь марш поместился в шахту с полями:
+        // снизу иначе ступени лезут в оконный проём, сверху — под дверь,
+        // которая почти всегда стоит в торце шахты.
+        const padTop = 24
         const padBottom = 20
         const inner = entry.plate.h - padTop - padBottom
         if (entry.count > 1 && inner > 0) {

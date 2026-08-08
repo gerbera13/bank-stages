@@ -36,22 +36,42 @@ function gapsAlong(wall, ink, w, h, minGap, maxGap) {
   const uy = dy / len
   const nx = -uy
   const ny = ux
-  const half = Math.max(2, Math.round((wall.thickness ?? 2) / 2) + 1)
-  const solid = (t) => {
+  const thick = Math.max(1, Math.round(wall.thickness ?? 2))
+  const half = Math.max(2, Math.round(thick / 2) + 1)
+  // «Стена здесь есть» = чернила лежат ПО ОБЕ СТОРОНЫ от осевой линии.
+  //
+  // Порог «сколько чернил поперёк» здесь не работает ни в каком виде: чертежи
+  // тянут его в разные стороны. Считать от объявленной толщины — на демо она
+  // вышла 11 вместо 6, порог задрался, и пять дверей нижнего ряда кабинетов
+  // читались как сплошная стена. Считать от медианы профиля — рушатся коттедж
+  // и БТИ, где стены тонкие и проёмов не остаётся вовсе. Признак «хоть один
+  // пиксель» тоже не годится: у толстой наружной стены грань продолжается
+  // через окно, и окон не видно совсем.
+  //
+  // Двусторонность свободна от порога и верна для всех трёх типов стен:
+  // у сплошной чернила с обеих сторон, у двойной линии — обе грани, у тонкой
+  // линия лежит на самой осевой и засчитывается в обе стороны. В проёме же
+  // пропадает либо всё, либо всё кроме одной наружной грани.
+  const across = []
+  for (let t = 0; t <= len; t++) {
     const px = wall.x1 + ux * t
     const py = wall.y1 + uy * t
+    let up = false
+    let down = false
     for (let n = -half; n <= half; n++) {
       const x = Math.round(px + nx * n)
       const y = Math.round(py + ny * n)
       if (x < 0 || y < 0 || x >= w || y >= h) continue
-      if (ink[y * w + x]) return true
+      if (!ink[y * w + x]) continue
+      if (n <= 0) up = true
+      if (n >= 0) down = true
     }
-    return false
+    across.push(up && down)
   }
   const out = []
   let start = null
   for (let t = 0; t <= len; t++) {
-    if (!solid(t)) {
+    if (!across[t]) {
       if (start === null) start = t
     } else if (start !== null) {
       const width = t - start

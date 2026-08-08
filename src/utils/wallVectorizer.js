@@ -415,7 +415,13 @@ function pairFaces(segments, maxThickness) {
       const b0 = Math.min(proj(b.x1, b.y1), proj(b.x2, b.y2))
       const b1 = Math.max(proj(b.x1, b.y1), proj(b.x2, b.y2))
       const overlap = Math.min(a1, b1) - Math.max(a0, b0)
+      // Перекрытие меряем по ДЛИННОЙ грани. По короткой проверка пропускала
+      // огрызки: на демо стена коридора длиной 562 px спаривалась с обрубком
+      // в 18 px у лестничной шахты, осевая уезжала на 6 px в пустоту, и вся
+      // стена читалась как несплошная — двери нижнего ряда пропадали.
       if (overlap < Math.min(len(a), len(b)) * 0.5) continue
+      // ...и грани должны быть сопоставимой длины: обрубок ≠ вторая грань.
+      if (Math.min(len(a), len(b)) < Math.max(len(a), len(b)) * 0.25) continue
       if (dist < mateDist) {
         mateDist = dist
         mate = j
@@ -425,11 +431,31 @@ function pairFaces(segments, maxThickness) {
       const b = segments[mate]
       used.add(i)
       used.add(mate)
+      // Осевая линия — по ОБЪЕДИНЕНИЮ граней вдоль стены, не по среднему их
+      // концов. Грани двойной стены редко одинаковой длины: у демо нижняя
+      // стена коридора идёт x24..586, а верхняя только x166..456, и среднее
+      // давало огрызок x95..521. Стены не хватало до углов, планарный обход
+      // не замыкал грани — коридор слипался с нижним рядом кабинетов.
+      const nx = Math.cos(a.theta)
+      const ny = Math.sin(a.theta)
+      const dx = -Math.sin(a.theta)
+      const dy = Math.cos(a.theta)
+      const along = (px, py) => px * dx + py * dy
+      const across = (px, py) => px * nx + py * ny
+      const ts = [
+        along(a.x1, a.y1),
+        along(a.x2, a.y2),
+        along(b.x1, b.y1),
+        along(b.x2, b.y2),
+      ]
+      const t0 = Math.min(...ts)
+      const t1 = Math.max(...ts)
+      const off = (across(a.x1, a.y1) + across(b.x1, b.y1)) / 2
       walls.push({
-        x1: (a.x1 + b.x1) / 2,
-        y1: (a.y1 + b.y1) / 2,
-        x2: (a.x2 + b.x2) / 2,
-        y2: (a.y2 + b.y2) / 2,
+        x1: dx * t0 + nx * off,
+        y1: dy * t0 + ny * off,
+        x2: dx * t1 + nx * off,
+        y2: dy * t1 + ny * off,
         thickness: mateDist,
         paired: true,
       })

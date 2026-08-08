@@ -193,15 +193,40 @@ export function buildRooms(walls, w, h) {
   const frameArea = w * h
   const minArea = Math.max(300, frameArea * 0.002)
   const rooms = []
+  // Внешняя грань обходится в обратную сторону, поэтому её площадь
+  // отрицательна и по модулю равна пятну застройки. Это готовый контур
+  // здания — тот самый, что старый движок собирал объединением прямоугольников.
+  let outerFace = null
+  let outerArea = 0
   for (const face of faces) {
     const area = signedArea(face)
-    // Внешняя грань обходится в другую сторону — отсекается по знаку.
+    if (area < outerArea) {
+      outerArea = area
+      outerFace = face
+    }
     // Порог снизу убирает «карманы» внутри толщины стен.
     if (area <= minArea) continue
     if (area > frameArea * 0.85) continue
+    // Пустота между гранями двойной стены — тоже замкнутая грань, и площадь
+    // у неё бывает приличная (6px × 500px). Отсекаем по толщине: для длинного
+    // прямоугольника 2·S/P ≈ половина ширины, у настоящей комнаты она заметна.
+    let perim = 0
+    for (let i = 0; i < face.length; i++) {
+      const [x1, y1] = face[i]
+      const [x2, y2] = face[(i + 1) % face.length]
+      perim += Math.hypot(x2 - x1, y2 - y1)
+    }
+    if (perim > 0 && (2 * area) / perim < minSide * 0.02) continue
     const poly = dropCollinear(face)
     rooms.push({ polygon: poly.map(([x, y]) => [Math.round(x), Math.round(y)]), area })
   }
   rooms.sort((a, b) => b.area - a.area)
-  return { rooms, faces: faces.length }
+  const outline =
+    outerFace && -outerArea > minArea
+      ? dropCollinear(outerFace)
+          .slice()
+          .reverse()
+          .map(([x, y]) => [Math.round(x), Math.round(y)])
+      : null
+  return { rooms, outline, faces: faces.length }
 }
