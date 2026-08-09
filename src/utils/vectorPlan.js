@@ -207,13 +207,20 @@ function assignTypes(rooms, plan) {
   return types
 }
 
-/** Сторона комнаты, на которой лежит проём. */
-function sideFor(rect, op) {
+/**
+ * Сторона комнаты, на которой лежит проём.
+ * Точку проёма принимаем УЖЕ В КООРДИНАТАХ ПЛАНА. Раньше сюда приходила точка
+ * в координатах чертежа, а центр комнаты был в координатах плана: чертёж
+ * 0…352, план 60…580, первое почти всегда меньше второго — и сторона выходила
+ * «сверху» почти для всех проёмов. Окна нижнего ряда из-за этого рисовались
+ * на верхней стене, то есть внутрь коридора.
+ */
+function sideFor(rect, px, py, op) {
   const horizontal = Math.abs(op.ux) >= Math.abs(op.uy)
   const cx = rect.x + rect.w / 2
   const cy = rect.y + rect.h / 2
-  if (horizontal) return op.y <= cy ? 'top' : 'bottom'
-  return op.x <= cx ? 'left' : 'right'
+  if (horizontal) return py <= cy ? 'top' : 'bottom'
+  return px <= cx ? 'left' : 'right'
 }
 
 /**
@@ -272,7 +279,7 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
     if (best < 0 || bestD > 24) return
     const rect = rooms[best].rect
-    const side = sideFor(rect, op)
+    const side = sideFor(rect, px, py, op)
     const item = {
       x: side === 'left' ? rect.x : side === 'right' ? rect.x + rect.w : px,
       y: side === 'top' ? rect.y : side === 'bottom' ? rect.y + rect.h : py,
