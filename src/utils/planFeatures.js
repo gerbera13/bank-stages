@@ -253,5 +253,43 @@ export function findStairFlights(ink, w, h) {
     const treads = collapseRuns(runsOf(ink, w, h, minLen, maxLen, vertical))
     for (const f of flightsFromTreads(treads, vertical, minTreads)) out.push(f)
   }
+  return mergeFlights(out)
+}
+
+/**
+ * Склеить куски одного марша. Разбиение по шагу иногда рвёт стопку посередине
+ * (на демо марш выходил двумя лестницами по 10 ступеней в одной шахте), но
+ * куски остаются в том же пробеге и продолжают друг друга.
+ */
+function mergeFlights(flights) {
+  const box = (f) => {
+    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
+    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
+    return {
+      x0: Math.min(...xs),
+      x1: Math.max(...xs),
+      y0: Math.min(...ys),
+      y1: Math.max(...ys),
+    }
+  }
+  const out = []
+  for (const f of flights) {
+    const b = box(f)
+    const near = out.find((g) => {
+      const a = box(g)
+      const ovX = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)
+      const ovY = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)
+      const wide = Math.max(a.x1 - a.x0, b.x1 - b.x0)
+      const tall = Math.max(a.y1 - a.y0, b.y1 - b.y0)
+      // один пробег вдоль ступеней и почти вплотную поперёк
+      const alongX = ovX >= wide * 0.7 && ovY >= -tall * 0.35
+      const alongY = ovY >= tall * 0.7 && ovX >= -wide * 0.35
+      return alongX || alongY
+    })
+    if (near) {
+      near.treads = near.treads.concat(f.treads)
+      near.count = near.treads.length
+    } else out.push({ ...f })
+  }
   return out
 }
