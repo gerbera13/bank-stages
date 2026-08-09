@@ -18,7 +18,7 @@
 const ENDPOINT = '/lmstudio/v1'
 
 /** Есть ли на месте локальная модель, способная смотреть картинки. */
-export async function findVisionModel(signal) {
+async function findVisionModel(signal) {
   const res = await fetch(`${ENDPOINT}/models`, { signal })
   if (!res.ok) throw new Error(`LM Studio ответил ${res.status}`)
   const data = await res.json()

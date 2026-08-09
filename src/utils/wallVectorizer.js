@@ -647,5 +647,18 @@ export function vectorizeWalls(imageData) {
     const median = probes[Math.floor(probes.length / 2)]
     return { ...wall, thickness: median || thicknessAt(ink, w, h, mx, my, theta) }
   })
-  return { w, h, ink, inkHard, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
+  return {
+    w,
+    h,
+    ink,
+    inkHard,
+    walls,
+    // Ниже — только для разбора полётов: сам движок этих полей не читает.
+    // Оставлены намеренно: почти каждая ошибка в этой работе находилась
+    // сравнением того, что видно на каждой стадии.
+    segments: whole,
+    rawSegments: segments,
+    skeletonPixels: skeleton.reduce((a, b) => a + b, 0),
+    droppedText: drop.size,
+  }
 }
