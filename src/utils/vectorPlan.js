@@ -274,11 +274,6 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   for (const wnd of v.windows) attach(wnd, 'window')
 
   // Сантехника: приборы делают помещение санузлом, бачок унитаза — к стене.
-  // Мебель из общего разбора сюда НЕ идёт. На демо она даёт пять предметов
-  // там, где на чертеже нет ни одного: три «стула» садятся на подписи
-  // кабинетов, один на подпись нижнего ряда, «стойка» — в лестничную шахту.
-  // Отсев подписей в общем коде опирается на разбиение по комнатам, а оно
-  // у движков разное. Пока честнее не рисовать мебель совсем.
   for (const item of v.details?.sanitary ?? []) {
     let best = -1
     let bestD = Infinity
@@ -311,6 +306,39 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       h: Math.max(10, tw(item.h)),
       ...(item.type === 'toilet' ? { tankDir } : { wallDir: tankDir }),
     })
+  }
+
+  // Мебель. Подключена после того, как отсев подписей стал строиться по
+  // кляксам всего листа: до этого на демо появлялись пять предметов там, где
+  // на чертеже нет ни одного. В санузлы мебель не ставим — там приборы.
+  for (const f of v.details?.furniture ?? []) {
+    const cx = f.x + (f.w ?? 0) / 2
+    const cy = f.y + (f.h ?? 0) / 2
+    const best = v.rooms.findIndex((r) => inside(r.polygon, cx, cy))
+    if (best < 0 || out[best].type === 'service') continue
+    if (f.type === 'counter' && f.points) {
+      out[best].features.push({
+        type: 'counter',
+        points: f.points.map(([x, y]) => [tx(x), ty(y)]),
+      })
+    } else if (f.type === 'table') {
+      out[best].features.push({
+        type: 'table',
+        x: tx(f.x),
+        y: ty(f.y),
+        r: Math.max(8, tw(f.r ?? Math.max(f.w, f.h) / 2)),
+        w: tw(f.w),
+        h: tw(f.h),
+      })
+    } else if (f.type === 'chair') {
+      out[best].features.push({
+        type: 'chair',
+        x: tx(f.x),
+        y: ty(f.y),
+        w: Math.max(12, tw(f.w)),
+        h: Math.max(12, tw(f.h)),
+      })
+    }
   }
 
   // Лестницы. Марш внутри помещения — его деталь; марш снаружи (наружное

@@ -1888,7 +1888,21 @@ export function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
       holeWall: enclosedArea(inkAndWalls, w, h, b),
     })),
   )
-  const isText = textBlockFilter(blobsByRoom.flat(), w, h)
+  // Отсев подписей строится по кляксам ВСЕГО листа, а не только по попавшим
+  // в комнаты: строка подписи легко выходит за прямоугольник комнаты, и тогда
+  // не набирается. Дырку считаем и здесь — по ней раковина-полукруг отличается
+  // от буквы, и без неё приборы уезжают в «строку текста».
+  const whole = findBlobsInRoom(binOrInk, wallMask, w, h, {
+    x: -3,
+    y: -3,
+    w: w + 6,
+    h: h + 6,
+  }).map((b) => ({
+    ...b,
+    hole: enclosedArea(binOrInk, w, h, b),
+    holeWall: enclosedArea(inkAndWalls, w, h, b),
+  }))
+  const isText = textBlockFilter([...blobsByRoom.flat(), ...whole], w, h)
 
   const roomMeta = rooms.map((r, ri) => {
     const blobs = blobsByRoom[ri].filter((b) => !isText(b))
