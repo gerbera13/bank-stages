@@ -68,19 +68,42 @@ function splitAtIntersections(segments, reach) {
   return pieces
 }
 
-/** Граф: близкие концы склеиваются в одну вершину. */
+/**
+ * Граф: близкие концы склеиваются в одну вершину.
+ *
+ * Ищем не в одной ячейке сетки, а в окрестности. Иначе точка, попавшая ровно
+ * на границу ячейки, разъезжается: на демо перегородка между «офис 5» и
+ * «офис 6» стоит на x=358, при шаге сетки 4 это ровно 89.5, и мельчайшая
+ * разница в дробной части кидала конец перегородки и конец коридорной стены
+ * в разные ячейки. Стены не соединялись, перегородка оказывалась висячей и
+ * срезалась — две комнаты сливались в одну.
+ */
 function buildGraph(pieces, snap) {
   const verts = []
-  const key = (x, y) => `${Math.round(x / snap)},${Math.round(y / snap)}`
   const index = new Map()
   const vertexAt = (x, y) => {
-    const k = key(x, y)
-    let id = index.get(k)
-    if (id === undefined) {
-      id = verts.length
-      verts.push({ x, y, links: [] })
-      index.set(k, id)
+    const cx = Math.floor(x / snap)
+    const cy = Math.floor(y / snap)
+    let best = -1
+    let bestD = Infinity
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const id of index.get(`${cx + dx},${cy + dy}`) ?? []) {
+          const d = Math.hypot(verts[id].x - x, verts[id].y - y)
+          if (d <= snap && d < bestD) {
+            bestD = d
+            best = id
+          }
+        }
+      }
     }
+    if (best >= 0) return best
+    const id = verts.length
+    verts.push({ x, y, links: [] })
+    const k = `${cx},${cy}`
+    const bucket = index.get(k)
+    if (bucket) bucket.push(id)
+    else index.set(k, [id])
     return id
   }
   for (const p of pieces) {
