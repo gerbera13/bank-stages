@@ -336,9 +336,15 @@ function mergeCollinear(segments, angleTol, offsetTol, gapTol) {
           if (used.has(j)) continue
           const other = list[j]
           const [vx, vy, vlen] = dirOf(other)
-          // сонаправленность (знак направления не важен)
+          // Сонаправленность (знак направления не важен). Короткому куску
+          // допуск шире: направление у него меряется грубее. На демо нижняя
+          // стена бойлерной состоит из длинного куска и обрубка в 27 px,
+          // наклонённого на 10°; при общем допуске в 6° они не срастались,
+          // между ними оставалась дыра, и комната не замыкалась вовсе.
+          const shortest = Math.min(ulen, vlen)
+          const tol = shortest < 40 ? angleTol * 2.5 : angleTol
           const cosA = Math.abs(ux * vx + uy * vy)
-          if (cosA < Math.cos(angleTol)) continue
+          if (cosA < Math.cos(tol)) continue
           // смещение поперёк: обе точки чужого куска близко к нашей прямой
           const off = (px, py) => Math.abs((px - cur.x1) * -uy + (py - cur.y1) * ux)
           if (off(other.x1, other.y1) > offsetTol || off(other.x2, other.y2) > offsetTol) continue
