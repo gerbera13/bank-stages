@@ -216,19 +216,32 @@ function assignTypes(rooms, plan) {
 }
 
 /**
- * Сторона комнаты, на которой лежит проём.
- * Точку проёма принимаем УЖЕ В КООРДИНАТАХ ПЛАНА. Раньше сюда приходила точка
- * в координатах чертежа, а центр комнаты был в координатах плана: чертёж
- * 0…352, план 60…580, первое почти всегда меньше второго — и сторона выходила
- * «сверху» почти для всех проёмов. Окна нижнего ряда из-за этого рисовались
- * на верхней стене, то есть внутрь коридора.
+ * Сторона комнаты, на которой лежит проём — по САМОЙ ФОРМЕ комнаты, а не по
+ * центру её габарита. Полигон и проём принимаем в координатах чертежа.
+ *
+ * По центру габарита выходит неверно на всякой не-прямоугольной комнате.
+ * Коридор на демо Г-образный: габарит y291..432, центр 361, а сама лента
+ * y291..349. Все четыре двери нижнего ряда стоят у её нижнего края, но выше
+ * центра габарита — и уезжали на верхнюю грань, то есть пропадали с глаз.
+ *
+ * Здесь смотрим, с какой стороны от проёма лежит тело комнаты: если ниже —
+ * проём на её верхней грани, если выше — на нижней.
  */
-function sideFor(rect, px, py, op) {
+function sideForRoom(poly, op, step) {
   const horizontal = Math.abs(op.ux) >= Math.abs(op.uy)
-  const cx = rect.x + rect.w / 2
-  const cy = rect.y + rect.h / 2
-  if (horizontal) return py <= cy ? 'top' : 'bottom'
-  return px <= cx ? 'left' : 'right'
+  const nx = -op.uy
+  const ny = op.ux
+  const plus = inside(poly, op.x + nx * step, op.y + ny * step)
+  const minus = inside(poly, op.x - nx * step, op.y - ny * step)
+  // нормаль (nx,ny) при горизонтальной стене смотрит вниз по оси Y
+  if (horizontal) {
+    if (plus && !minus) return ny > 0 ? 'top' : 'bottom'
+    if (minus && !plus) return ny > 0 ? 'bottom' : 'top'
+    return 'top'
+  }
+  if (plus && !minus) return nx > 0 ? 'left' : 'right'
+  if (minus && !plus) return nx > 0 ? 'right' : 'left'
+  return 'left'
 }
 
 /**
@@ -246,6 +259,28 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   const tx = (x) => Math.round(x * scale + ox)
   const ty = (y) => Math.round(y * scale + oy)
   const tw = (d) => Math.max(1, Math.round(d * scale))
+
+  // Игла в полигоне: короткая грань, на которой обход разворачивается назад.
+  // На демо коридор выходил с зигзагом [435,349]→[398,384]→[410,378]→[410,432]
+  // — вылазка вниз-влево и тут же обратно. Это шум обхода, а не форма комнаты.
+  const dropSpikes = (poly, tol = 16) => {
+    if (poly.length <= 4) return poly
+    const out = poly.map(([x, y]) => [x, y])
+    for (let i = out.length - 1; i >= 0 && out.length > 4; i--) {
+      const p = out[(i + out.length - 1) % out.length]
+      const c = out[i]
+      const n = out[(i + 1) % out.length]
+      const inLen = Math.hypot(c[0] - p[0], c[1] - p[1])
+      const outLen = Math.hypot(n[0] - c[0], n[1] - c[1])
+      if (Math.min(inLen, outLen) > tol) continue
+      // разворот: входящее и исходящее направления смотрят навстречу
+      const dot =
+        ((c[0] - p[0]) * (n[0] - c[0]) + (c[1] - p[1]) * (n[1] - c[1])) /
+        (Math.max(inLen, 1e-6) * Math.max(outLen, 1e-6))
+      if (dot < -0.3) out.splice(i, 1)
+    }
+    return out
+  }
 
   // Грань комнаты с уклоном в пару единиц — след того, что вершины графа
   // склеивались с допуском. Глазом это читается как непараллельные стены.
@@ -274,7 +309,7 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   }
 
   const rooms = v.rooms.map((r, i) => {
-    const polygon = straighten(r.polygon.map(([x, y]) => [tx(x), ty(y)]))
+    const polygon = straighten(dropSpikes(r.polygon.map(([x, y]) => [tx(x), ty(y)])))
     const rect = bboxOf(polygon)
     return { src: i, srcPoly: r.polygon, polygon, rect, area: areaOf(polygon) }
   })
@@ -296,27 +331,44 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
 
   // Проёмы: ищем помещение, к стене которого проём прилегает, и сажаем его
   // на соответствующую грань габарита — Room.jsx рисует двери и окна по side.
+  // Расстояние от точки до контура комнаты. По габариту считать нельзя:
+  // у Г-образной комнаты точка бывает внутри габарита, но вне самой комнаты,
+  // и проём привязывался к ней, повисая в пустоте.
+  const distToOutline = (poly, px, py) => {
+    let best = Infinity
+    for (let k = 0; k < poly.length; k++) {
+      const [ax, ay] = poly[k]
+      const [bx, by] = poly[(k + 1) % poly.length]
+      const vx = bx - ax
+      const vy = by - ay
+      const l2 = vx * vx + vy * vy || 1
+      let t = ((px - ax) * vx + (py - ay) * vy) / l2
+      t = Math.max(0, Math.min(1, t))
+      best = Math.min(best, Math.hypot(px - (ax + vx * t), py - (ay + vy * t)))
+    }
+    return best
+  }
+
   const attach = (op, kind) => {
     const px = tx(op.x)
     const py = ty(op.y)
     let best = -1
     let bestD = Infinity
     for (let i = 0; i < rooms.length; i++) {
-      const b = rooms[i].rect
-      const dx = Math.max(b.x - px, 0, px - (b.x + b.w))
-      const dy = Math.max(b.y - py, 0, py - (b.y + b.h))
-      const d = Math.hypot(dx, dy)
+      const d = distToOutline(rooms[i].polygon, px, py)
       if (d < bestD) {
         bestD = d
         best = i
       }
     }
     if (best < 0 || bestD > 24) return
-    const rect = rooms[best].rect
-    const side = sideFor(rect, px, py, op)
+    const probe = Math.max(4, Math.round(Math.min(v.vec.w, v.vec.h) * 0.03))
+    const side = sideForRoom(v.rooms[best].polygon, op, probe)
+    // Положение оставляем настоящее, а не притянутое к габариту: у Г-образной
+    // комнаты грань идёт не по габариту, и притягивание уводило проём в стену.
     const item = {
-      x: side === 'left' ? rect.x : side === 'right' ? rect.x + rect.w : px,
-      y: side === 'top' ? rect.y : side === 'bottom' ? rect.y + rect.h : py,
+      x: px,
+      y: py,
       w: Math.max(kind === 'door' ? 18 : 36, tw(op.width)),
       side,
     }
