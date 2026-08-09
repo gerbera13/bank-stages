@@ -101,7 +101,11 @@ export default function Converter() {
   // Держим оба результата рядом — движки сравниваются переключателем.
   const [floorNew, setFloorNew] = useState(null)
   const [rawNew, setRawNew] = useState(null)
-  const [engine, setEngine] = useState('old')
+  // Основной — векторный движок. На демо движки равны (18/18/22 против
+  // 19/18/18), а на живых чертежах разрыв решающий: коттедж 15 комнат и
+  // 20 дверей против 8 и 2, БТИ 26 и 53 против 10 и 16. Старый остаётся
+  // в одном щелчке — он точнее на аккуратных ч/б планах вроде демо.
+  const [engine, setEngine] = useState('new')
   // Чтение подписей локальной моделью: необязательная возможность.
   // Кадр держим канвой — из него нарезаются вырезки комнат.
   const frameRef = useRef(null)
@@ -250,7 +254,7 @@ export default function Converter() {
     setRotated(false)
     setFloorNew(null)
     setRawNew(null)
-    setEngine('old')
+    setEngine('new')
     setReading(null)
     setReadError(null)
     frameRef.current = null
@@ -259,7 +263,31 @@ export default function Converter() {
     setFeats(null)
   }
 
+  // Цифры описывают ТОТ разбор, что показан справа: иначе строка под именем
+  // файла рассказывает про один движок, а панель «Стало» рисует другой.
   const stats = useMemo(() => {
+    if (engine === 'new' && floorNew) {
+      const rooms = floorNew.rooms
+      return {
+        mode: 'вектор',
+        rooms: rooms.length,
+        doors: rooms.reduce((a, r) => a + r.doors.length, 0),
+        windows: rooms.reduce((a, r) => a + r.windows.length, 0),
+        sanitary: rooms.reduce(
+          (a, r) => a + (r.features ?? []).filter((f) => f.type === 'toilet' || f.type === 'sink').length,
+          0,
+        ),
+        furniture: rooms.reduce(
+          (a, r) =>
+            a + (r.features ?? []).filter((f) => ['chair', 'table', 'counter'].includes(f.type)).length,
+          0,
+        ),
+        stairs: String(
+          rooms.reduce((a, r) => a + (r.features ?? []).filter((f) => f.type === 'stairs').length, 0) +
+            (floorNew.objects ?? []).filter((o) => o.type === 'stairs').length,
+        ),
+      }
+    }
     if (!extracted) return null
     return {
       mode: extracted.mode === 'color' ? 'цвет' : 'ч/б',
@@ -270,7 +298,7 @@ export default function Converter() {
       furniture: extracted.furniture?.length ?? 0,
       stairs: extracted.stairs?.length ? String(extracted.stairs.length) : 'нет',
     }
-  }, [extracted])
+  }, [extracted, engine, floorNew])
 
   // Автозагрузка примера при ?demo=1 (для проверки)
   useEffect(() => {
