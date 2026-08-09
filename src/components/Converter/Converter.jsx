@@ -17,10 +17,12 @@ import {
   Grid2x2,
   DoorOpen,
   Cpu,
+  ScanText,
 } from 'lucide-react'
 import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { extractPlanVector, toRawBlueprintVector } from '../../utils/vectorPlan.js'
+import { readRoomLabels } from '../../utils/labelReader.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
 import styles from './Converter.module.css'
@@ -100,6 +102,11 @@ export default function Converter() {
   const [floorNew, setFloorNew] = useState(null)
   const [rawNew, setRawNew] = useState(null)
   const [engine, setEngine] = useState('old')
+  // Чтение подписей локальной моделью: необязательная возможность.
+  // Кадр держим канвой — из него нарезаются вырезки комнат.
+  const frameRef = useRef(null)
+  const [reading, setReading] = useState(null)
+  const [readError, setReadError] = useState(null)
   // Живой blob-URL исходника: без освобождения он течёт на каждой загрузке
   const urlRef = useRef(null)
 
@@ -116,6 +123,12 @@ export default function Converter() {
     setExtracted(null)
     try {
       const { imageData: imgData, url, rotated } = await readImageData(file)
+      const canvas = document.createElement('canvas')
+      canvas.width = imgData.width
+      canvas.height = imgData.height
+      canvas.getContext('2d').putImageData(imgData, 0, 0)
+      frameRef.current = canvas
+      setReadError(null)
       showOriginal(url)
       setFileName(file.name)
       setRotated(rotated)
@@ -168,6 +181,34 @@ export default function Converter() {
     }
   }
 
+  // Прочитать подписи помещений локальной моделью и подставить их в план.
+  // Порядок комнат у разбора и у готового этажа один и тот же, поэтому
+  // подписи ложатся по индексу.
+  const handleReadLabels = async () => {
+    if (!frameRef.current || !newRooms || !rawNew) return
+    setReadError(null)
+    setReading({ done: 0, total: newRooms.rooms.length })
+    try {
+      const names = await readRoomLabels(frameRef.current, newRooms.rooms, {
+        onProgress: (done, total) => setReading({ done, total }),
+      })
+      const raw = {
+        ...rawNew,
+        floors: rawNew.floors.map((f) => ({
+          ...f,
+          rooms: f.rooms.map((r, i) => (names[i] ? { ...r, name: names[i] } : r)),
+        })),
+      }
+      setRawNew(raw)
+      setFloorNew(parseBlueprint(raw).floors[0])
+      setEngine('new')
+    } catch (err) {
+      setReadError(err.message)
+    } finally {
+      setReading(null)
+    }
+  }
+
   // Какой разбор показываем справа. Пока движки живут параллельно:
   // старый — опорный результат, новый — проверяемый.
   const shownFloor = engine === 'new' && floorNew ? floorNew : floor
@@ -210,6 +251,9 @@ export default function Converter() {
     setFloorNew(null)
     setRawNew(null)
     setEngine('old')
+    setReading(null)
+    setReadError(null)
+    frameRef.current = null
     setVectors(null)
     setNewRooms(null)
     setFeats(null)
@@ -353,6 +397,16 @@ export default function Converter() {
             <button
               type="button"
               className={styles.toolBtn}
+              onClick={handleReadLabels}
+              disabled={!floorNew || reading !== null}
+              title="Прочитать названия помещений локальной моделью (LM Studio). Работает, только если она запущена."
+            >
+              <ScanText size={14} />
+              {reading ? `Читаю подписи ${reading.done}/${reading.total}` : 'Прочитать подписи'}
+            </button>
+            <button
+              type="button"
+              className={styles.toolBtn}
               onClick={handleExport}
               disabled={!floor}
             >
@@ -362,6 +416,12 @@ export default function Converter() {
           </div>
 
           {error && <p className={styles.error}>{error}</p>}
+          {readError && (
+            <p className={styles.error}>
+              Подписи не прочитаны: {readError}. Проверьте, запущен ли LM Studio и загружена
+              ли в него модель, умеющая смотреть картинки.
+            </p>
+          )}
           {processing && <p className={styles.processing}>Обработка чертежа…</p>}
 
           {floor && (
