@@ -58,7 +58,7 @@ export function extractPlanVector(imageData) {
     const cy = b.y + b.h / 2
     const thin = Math.min(b.w, b.h)
     return !shafts.some(
-      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && thin < s.tread,
+      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && thin < s.tread
     )
   })
   // Ступени попадают в стены наравне с настоящими — и разрывы на них
@@ -70,10 +70,16 @@ export function extractPlanVector(imageData) {
     const cy = (wall.y1 + wall.y2) / 2
     const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
     return !shafts.some(
-      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && len <= s.tread * 1.5,
+      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && len <= s.tread * 1.5
     )
   })
-  const { doors, windows } = findOpenings(wallsForOpenings, vec.inkHard, vec.w, vec.h, rooms)
+  const { doors, windows } = findOpenings(
+    wallsForOpenings,
+    vec.inkHard,
+    vec.w,
+    vec.h,
+    rooms
+  )
 
   // Содержимое комнат — унитазы, раковины, мебель — разбирает общий с старым
   // движком код: геометрия у движков разная, а «что нарисовано внутри
@@ -81,8 +87,12 @@ export function extractPlanVector(imageData) {
   const wallMask = rasterizeWalls(vec.walls, vec.w, vec.h)
   const rects = rooms.map((r) => bboxOf(r.polygon))
   const stairMarks = flights.map((f) => ({
-    x: (Math.min(...f.treads.map((t) => t.x1)) + Math.max(...f.treads.map((t) => t.x2))) / 2,
-    y: (Math.min(...f.treads.map((t) => t.y1)) + Math.max(...f.treads.map((t) => t.y2))) / 2,
+    x:
+      (Math.min(...f.treads.map((t) => t.x1)) + Math.max(...f.treads.map((t) => t.x2))) /
+      2,
+    y:
+      (Math.min(...f.treads.map((t) => t.y1)) + Math.max(...f.treads.map((t) => t.y2))) /
+      2,
   }))
   let details = { sanitary: [], furniture: [], roomMeta: rects.map(() => ({})) }
   try {
@@ -90,10 +100,7 @@ export function extractPlanVector(imageData) {
   } catch {
     // разбор содержимого — необязательная часть: геометрия важнее
   }
-  const ms =
-    started === null
-      ? null
-      : Math.round((performance.now() - started) * 10) / 10
+  const ms = started === null ? null : Math.round((performance.now() - started) * 10) / 10
   return { vec, rooms, outline, doors, windows, flights, details, ms }
 }
 
@@ -188,13 +195,14 @@ function assignTypes(rooms, plan) {
         a.y - touch <= b.y + b.h &&
         b.y - touch <= a.y + a.h
       return near ? acc + 1 : acc
-    }, 0),
+    }, 0)
   )
   for (let k = 0; k < rooms.length; k++) {
     const r = rooms[k]
     const thin = Math.min(r.rect.w, r.rect.h)
     const long = Math.max(r.rect.w, r.rect.h)
-    if (long / thin >= 2.5 && neighbours[k] >= 4 && thin <= plan.h * 0.22) types[k] = 'corridor'
+    if (long / thin >= 2.5 && neighbours[k] >= 4 && thin <= plan.h * 0.22)
+      types[k] = 'corridor'
     else if (r.area <= plan.w * plan.h * 0.012) types[k] = 'service'
   }
   let meetings = 0
@@ -239,8 +247,34 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   const ty = (y) => Math.round(y * scale + oy)
   const tw = (d) => Math.max(1, Math.round(d * scale))
 
+  // Грань комнаты с уклоном в пару единиц — след того, что вершины графа
+  // склеивались с допуском. Глазом это читается как непараллельные стены.
+  // Выравниваем только почти прямые грани: настоящий скос не трогаем.
+  // Двумя проходами: выравнивание одной грани сдвигает вершину следующей,
+  // и за один круг остаток не сходится.
+  const straighten = (poly, tol = 3) => {
+    const out = poly.map(([x, y]) => [x, y])
+    for (let pass = 0; pass < 2; pass++)
+      for (let i = 0; i < out.length; i++) {
+        const a = out[i]
+        const b = out[(i + 1) % out.length]
+        const dx = Math.abs(b[0] - a[0])
+        const dy = Math.abs(b[1] - a[1])
+        if (dx > tol && dy > 0 && dy <= tol) {
+          const y = Math.round((a[1] + b[1]) / 2)
+          a[1] = y
+          b[1] = y
+        } else if (dy > tol && dx > 0 && dx <= tol) {
+          const x = Math.round((a[0] + b[0]) / 2)
+          a[0] = x
+          b[0] = x
+        }
+      }
+    return out
+  }
+
   const rooms = v.rooms.map((r, i) => {
-    const polygon = r.polygon.map(([x, y]) => [tx(x), ty(y)])
+    const polygon = straighten(r.polygon.map(([x, y]) => [tx(x), ty(y)]))
     const rect = bboxOf(polygon)
     return { src: i, srcPoly: r.polygon, polygon, rect, area: areaOf(polygon) }
   })
@@ -372,7 +406,7 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
         (t) =>
           inside(v.outline, (t.x1 + t.x2) / 2, (t.y1 + t.y2) / 2) ||
           inside(v.outline, t.x1, t.y1) ||
-          inside(v.outline, t.x2, t.y2),
+          inside(v.outline, t.x2, t.y2)
       )
       if (!anyInside) continue
     }
@@ -446,7 +480,9 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   }
 
   const outline =
-    v.outline && v.outline.length >= 3 ? v.outline.map(([x, y]) => [tx(x), ty(y)]) : undefined
+    v.outline && v.outline.length >= 3
+      ? v.outline.map(([x, y]) => [tx(x), ty(y)])
+      : undefined
 
   return {
     name,
