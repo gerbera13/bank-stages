@@ -594,7 +594,28 @@ export function vectorizeWalls(imageData) {
     const mx = Math.round((wall.x1 + wall.x2) / 2)
     const my = Math.round((wall.y1 + wall.y2) / 2)
     const theta = Math.atan2(wall.y2 - wall.y1, wall.x2 - wall.x1) + Math.PI / 2
-    return { ...wall, thickness: thicknessAt(ink, w, h, mx, my, theta) }
+    // Толщину меряем в НЕСКОЛЬКИХ точках и берём медиану. В одной точке
+    // ошибиться легко: середина перегородки между кабинками санузла на демо
+    // приходится ровно на пересечение с вертикальной стеной, и толщина
+    // выходила 25 px при реальных двух. Полоса просмотра раздувалась, дверные
+    // разрывы в ней тонули, и двери кабинок пропадали все до одной.
+    const probes = []
+    for (let k = 1; k <= 7; k++) {
+      const f = k / 8
+      probes.push(
+        thicknessAt(
+          ink,
+          w,
+          h,
+          Math.round(wall.x1 + (wall.x2 - wall.x1) * f),
+          Math.round(wall.y1 + (wall.y2 - wall.y1) * f),
+          theta,
+        ),
+      )
+    }
+    probes.sort((a, b) => a - b)
+    const median = probes[Math.floor(probes.length / 2)]
+    return { ...wall, thickness: median || thicknessAt(ink, w, h, mx, my, theta) }
   })
   return { w, h, ink, inkHard, walls, segments: whole, rawSegments: segments, skeletonPixels: skeleton.reduce((a, b) => a + b, 0), droppedText: drop.size }
 }

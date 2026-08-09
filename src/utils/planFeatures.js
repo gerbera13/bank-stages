@@ -52,8 +52,14 @@ function gapsAlong(wall, ink, w, h, minGap, maxGap) {
   // у сплошной чернила с обеих сторон, у двойной линии — обе грани, у тонкой
   // линия лежит на самой осевой и засчитывается в обе стороны. В проёме же
   // пропадает либо всё, либо всё кроме одной наружной грани.
+  // Смотрим НЕМНОГО ЗА края стены. Стена нередко обрывается ровно на проёме:
+  // на демо перегородка между кабинками санузла идёт x41..96, а двери лежат
+  // в 44..52 и 84..94 — впритык к её концам. Правило «разрыв у края — это
+  // незакрытый конец, а не дверь» съедало их обе, и все двери санузла
+  // пропадали. По запасу видно, что за проёмом стена продолжается.
+  const pad = Math.max(6, Math.round(minGap * 1.5))
   const across = []
-  for (let t = 0; t <= len; t++) {
+  for (let t = -pad; t <= len + pad; t++) {
     const px = wall.x1 + ux * t
     const py = wall.y1 + uy * t
     let up = false
@@ -68,20 +74,30 @@ function gapsAlong(wall, ink, w, h, minGap, maxGap) {
     }
     across.push(up && down)
   }
+  // Сплошные и пустые куски профиля подряд.
+  const runs = []
+  for (let k = 0; k < across.length; k++) {
+    const solid = across[k]
+    const last = runs[runs.length - 1]
+    if (last && last.solid === solid) last.end = k
+    else runs.push({ solid, start: k, end: k })
+  }
+  // Требовать по бокам от разрыва длинных кусков стены нельзя: на коттедже и
+  // БТИ стены и так рваные, и при пороге даже в 2 px дверей остаётся 4 из 12.
+  // Достаточно того, что стена есть с обеих сторон хоть чем-то.
+  const solidEnough = 1
   const out = []
-  let start = null
-  for (let t = 0; t <= len; t++) {
-    if (!across[t]) {
-      if (start === null) start = t
-    } else if (start !== null) {
-      const width = t - start
-      // проёмы у самого края стены — это её незакрытый конец, а не дверь
-      if (width >= minGap && width <= maxGap && start > 2 && t < len - 2) {
-        const mid = start + width / 2
-        out.push({ x: wall.x1 + ux * mid, y: wall.y1 + uy * mid, width, ux, uy, nx, ny })
-      }
-      start = null
-    }
+  for (let i = 1; i + 1 < runs.length; i++) {
+    const r = runs[i]
+    if (r.solid) continue
+    const before = runs[i - 1]
+    const after = runs[i + 1]
+    if (before.end - before.start + 1 < solidEnough) continue
+    if (after.end - after.start + 1 < solidEnough) continue
+    const width = r.end - r.start + 1
+    if (width < minGap || width > maxGap) continue
+    const mid = (r.start + r.end) / 2 - pad
+    out.push({ x: wall.x1 + ux * mid, y: wall.y1 + uy * mid, width, ux, uy, nx, ny })
   }
   return out
 }
