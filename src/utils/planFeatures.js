@@ -132,74 +132,126 @@ export function findOpenings(walls, ink, w, h, rooms) {
 }
 
 /**
- * Лестницы: группы параллельных отрезков одинаковой длины с равным шагом.
- * Угол любой, привязка к комнате не нужна — поэтому находятся и наружные
- * крыльца, которых старый движок не видел в принципе.
+ * Лестницы: стопка одинаковых штрихов с равным шагом — прямо ПО ЧЕРНИЛАМ.
+ *
+ * Раньше марш искался по отрезкам, найденным Хафом, и это было ненадёжно:
+ * порог голосов (25) выше длины ступени (на демо 26 px, впритык), поэтому
+ * ступень собственной прямой почти не становилась. Лестница держалась на
+ * случайной диагонали через концы ступеней, и любая правка первых стадий
+ * её роняла — так случилось четыре раза подряд.
+ *
+ * Здесь Хаф не участвует вовсе: ищем в маске ряды подряд идущих чернил,
+ * склеиваем соседние ряды в ступень, и группируем ступени одинаковой ширины
+ * с равномерным шагом. Угол при этом поддерживается только прямой — марши
+ * под наклоном чертежи рисуют редко, а ложных срабатываний так меньше.
  */
-export function findStairFlights(segments, w, h) {
-  const minSide = Math.min(w, h)
-  const minTreads = 5
-  const used = new Set()
-  const flights = []
-  const dirOf = (s) => {
-    const dx = s.x2 - s.x1
-    const dy = s.y2 - s.y1
-    const len = Math.hypot(dx, dy) || 1
-    return { ux: dx / len, uy: dy / len, len, mx: (s.x1 + s.x2) / 2, my: (s.y1 + s.y2) / 2 }
-  }
-  const info = segments.map(dirOf)
-
-  for (let i = 0; i < segments.length; i++) {
-    if (used.has(i)) continue
-    const a = info[i]
-    if (a.len > minSide * 0.5) continue // длинная линия — стена, не ступень
-    // все отрезки, параллельные i и похожие по длине
-    const group = [i]
-    for (let j = 0; j < segments.length; j++) {
-      if (j === i || used.has(j)) continue
-      const b = info[j]
-      if (Math.abs(a.ux * b.ux + a.uy * b.uy) < Math.cos((7 * Math.PI) / 180)) continue
-      if (Math.abs(a.len - b.len) > Math.max(6, a.len * 0.4)) continue
-      group.push(j)
-    }
-    if (group.length < minTreads) continue
-    // шаг поперёк направления должен быть равномерным
-    const nx = -a.uy
-    const ny = a.ux
-    const proj = group
-      .map((k) => ({ k, d: info[k].mx * nx + info[k].my * ny }))
-      .sort((p, q) => p.d - q.d)
-    let run = [proj[0]]
-    const runs = []
-    for (let k = 1; k < proj.length; k++) {
-      const stepSize = proj[k].d - proj[k - 1].d
-      const prev = run.length > 1 ? run[run.length - 1].d - run[run.length - 2].d : stepSize
-      if (stepSize > 1 && stepSize < minSide * 0.12 && Math.abs(stepSize - prev) <= 3) {
-        run.push(proj[k])
-      } else {
-        if (run.length >= minTreads) runs.push(run)
-        run = [proj[k]]
+function runsOf(ink, w, h, minLen, maxLen, vertical) {
+  const W = vertical ? h : w
+  const H = vertical ? w : h
+  const at = (a, b) => (vertical ? ink[b * w + a] : ink[a * w + b])
+  const out = []
+  for (let b = 0; b < H; b++) {
+    let start = -1
+    for (let a = 0; a <= W; a++) {
+      const on = a < W && at(b, a)
+      if (on && start < 0) start = a
+      else if (!on && start >= 0) {
+        const len = a - start
+        if (len >= minLen && len <= maxLen) out.push({ b, a0: start, a1: a - 1, len })
+        start = -1
       }
     }
-    if (run.length >= minTreads) runs.push(run)
+  }
+  return out
+}
 
-    for (const r of runs) {
-      // Ступени марша ВЫРОВНЕНЫ: они лежат одна над другой, поэтому разброс
-      // их середин вдоль самой ступени невелик. Штриховка и размерные линии
-      // на чертежах БТИ идут такими же параллельными пачками с равным шагом,
-      // но раскиданы по всему листу: ступень 20 px при разбросе 370 px.
-      // Без этой проверки план покрывался полосатыми лентами во всю ширину.
-      const tread = r.reduce((acc, p) => acc + info[p.k].len, 0) / r.length
-      const alongs = r.map((p) => info[p.k].mx * a.ux + info[p.k].my * a.uy)
-      const spread = Math.max(...alongs) - Math.min(...alongs)
-      if (spread > tread) continue
-      for (const p of r) used.add(p.k)
-      const treads = r.map((p) => segments[p.k])
-      flights.push({
-        treads: treads.map((t) => ({ x1: t.x1, y1: t.y1, x2: t.x2, y2: t.y2 })),
-        count: treads.length,
-      })
+/** Соседние ряды с почти тем же пробегом — это одна ступень, а не две. */
+function collapseRuns(runs) {
+  const treads = []
+  for (const r of runs) {
+    const last = treads[treads.length - 1]
+    const overlap = last ? Math.min(last.a1, r.a1) - Math.max(last.a0, r.a0) + 1 : 0
+    if (last && r.b - last.b <= 1 && overlap >= Math.min(last.len, r.len) * 0.8) {
+      last.b1 = r.b
+      last.a0 = Math.min(last.a0, r.a0)
+      last.a1 = Math.max(last.a1, r.a1)
+      last.len = last.a1 - last.a0 + 1
+    } else {
+      treads.push({ ...r, b1: r.b })
     }
   }
+  return treads
+}
+
+function flightsFromTreads(treads, vertical, minTreads) {
+  // группируем по совпадающему пробегу: ступени одного марша стоят друг над другом
+  const groups = []
+  for (const t of treads) {
+    const g = groups.find((q) => {
+      const ov = Math.min(q.a1, t.a1) - Math.max(q.a0, t.a0) + 1
+      return ov >= Math.max(q.len, t.len) * 0.7
+    })
+    if (g) g.items.push(t)
+    else groups.push({ a0: t.a0, a1: t.a1, len: t.len, items: [t] })
+  }
+  const flights = []
+  for (const g of groups) {
+    if (g.items.length < minTreads) continue
+    g.items.sort((p, q) => p.b - q.b)
+    // разрезаем на куски с равномерным шагом
+    let run = [g.items[0]]
+    const push = (arr) => {
+      if (arr.length < minTreads) return
+      // Стопка марша компактна: по высоте он сопоставим с длиной ступени, а не
+      // растянут через весь лист. Размерные засечки на чертежах БТИ идут такой
+      // же равномерной пачкой — 12 штук по 19 px, растянутых на 326, — и без
+      // этой проверки план покрывался ложными лестницами.
+      const spread = arr[arr.length - 1].b - arr[0].b
+      const tread = arr.reduce((acc, t) => acc + t.len, 0) / arr.length
+      if (spread > tread * 4) return
+      flights.push({
+        count: arr.length,
+        treads: arr.map((t) => {
+          const mid = (t.b + t.b1) / 2
+          return vertical
+            ? { x1: mid, y1: t.a0, x2: mid, y2: t.a1 }
+            : { x1: t.a0, y1: mid, x2: t.a1, y2: mid }
+        }),
+      })
+    }
+    // Типичный шаг марша — медиана всех промежутков. Рвём стопку только там,
+    // где промежуток резко выбивается: жёсткое «не больше трёх пикселей от
+    // предыдущего» разрезало марш демо надвое посреди одной шахты.
+    const steps = []
+    for (let i = 1; i < g.items.length; i++) steps.push(g.items[i].b - g.items[i - 1].b)
+    const sorted = steps.slice().sort((p, q) => p - q)
+    const typical = sorted[Math.floor(sorted.length / 2)] || 1
+    for (let i = 1; i < g.items.length; i++) {
+      const step = steps[i - 1]
+      if (step > 1 && step <= typical * 2 && step >= typical * 0.4) run.push(g.items[i])
+      else {
+        push(run)
+        run = [g.items[i]]
+      }
+    }
+    push(run)
+  }
   return flights
+}
+
+/**
+ * Марши на плане. Маска — МЯГКАЯ: ступени часто рисуют светло-серым.
+ * @param {Uint8Array} ink маска чернил
+ */
+export function findStairFlights(ink, w, h) {
+  const minSide = Math.min(w, h)
+  const minLen = Math.max(8, Math.round(minSide * 0.03))
+  const maxLen = Math.round(minSide * 0.35)
+  const minTreads = 5
+  const out = []
+  for (const vertical of [false, true]) {
+    const treads = collapseRuns(runsOf(ink, w, h, minLen, maxLen, vertical))
+    for (const f of flightsFromTreads(treads, vertical, minTreads)) out.push(f)
+  }
+  return out
 }

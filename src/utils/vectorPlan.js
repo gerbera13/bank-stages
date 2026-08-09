@@ -21,7 +21,7 @@ export function extractPlanVector(imageData) {
   const started =
     typeof performance !== 'undefined' && performance.now ? performance.now() : null
   const vec = vectorizeWalls(imageData)
-  const flights = findStairFlights(vec.rawSegments ?? vec.segments ?? [], vec.w, vec.h)
+  const flights = findStairFlights(vec.ink, vec.w, vec.h)
   const built = buildRooms(vec.walls, vec.w, vec.h)
   const outline = built.outline
   // Промежутки между ступенями — тоже замкнутые грани, и планарный обход
