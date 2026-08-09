@@ -61,7 +61,19 @@ export function extractPlanVector(imageData) {
       (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && thin < s.tread,
     )
   })
-  const { doors, windows } = findOpenings(vec.walls, vec.inkHard, vec.w, vec.h, rooms)
+  // Ступени попадают в стены наравне с настоящими — и разрывы на них
+  // становились окнами: на демо четыре лишних окна из двадцати двух были
+  // штрихами марша. Из поиска проёмов ступени исключаем: короткая линия
+  // внутри марша — это ступень, а не стена с окном.
+  const wallsForOpenings = vec.walls.filter((wall) => {
+    const cx = (wall.x1 + wall.x2) / 2
+    const cy = (wall.y1 + wall.y2) / 2
+    const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+    return !shafts.some(
+      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && len <= s.tread * 1.5,
+    )
+  })
+  const { doors, windows } = findOpenings(wallsForOpenings, vec.inkHard, vec.w, vec.h, rooms)
 
   // Содержимое комнат — унитазы, раковины, мебель — разбирает общий с старым
   // движком код: геометрия у движков разная, а «что нарисовано внутри
