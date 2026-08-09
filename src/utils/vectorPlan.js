@@ -404,15 +404,42 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
     if (outdoor) host = -1
     if (host >= 0) {
-      out[host].features.push({
-        type: 'stairs',
-        x: tx(x0),
-        y: ty(y0),
-        step: Math.max(8, tw(span / Math.max(1, f.count - 1))),
-        count: f.count,
-        len: Math.max(16, tw(len)),
-        dir: 'right',
-      })
+      // Марш рисуем ровно на его настоящую длину. Раньше шаг поджимался снизу
+      // до 8 единиц: при настоящих 5.4 и двадцати ступенях марш растягивался
+      // со 102 единиц до 152 и вылезал за комнату, повисая в воздухе. Если
+      // ступени встают слишком часто, чтобы их различить, — рисуем их реже,
+      // но на той же длине.
+      const spanPlan = tw(span)
+      let count = f.count
+      let step = spanPlan / Math.max(1, count - 1)
+      const minStep = 5
+      if (step < minStep) {
+        count = Math.max(2, Math.floor(spanPlan / minStep) + 1)
+        step = spanPlan / Math.max(1, count - 1)
+      }
+      // Марш бывает крупнее комнаты, к которой привязан: шахта на коттедже
+      // разбита на несколько граней, и марш вылезал за свою на 26 единиц —
+      // висел в воздухе. Обрезаем по комнате: лучше показать часть внутри,
+      // чем целое снаружи.
+      const box = rooms[host].rect
+      let top = ty(y0)
+      if (top < box.y) {
+        const skip = Math.ceil((box.y - top) / step)
+        top += skip * step
+        count -= skip
+      }
+      while (count > 2 && top + (count - 1) * step > box.y + box.h) count--
+      if (count >= 2) {
+        out[host].features.push({
+          type: 'stairs',
+          x: tx(x0),
+          y: top,
+          step,
+          count,
+          len: Math.max(16, tw(len)),
+          dir: 'right',
+        })
+      }
     } else {
       objects.push({ type: 'stairs', x: tx(cx), y: ty(cy), name: 'Наружная лестница' })
     }

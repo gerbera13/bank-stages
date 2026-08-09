@@ -647,6 +647,34 @@ export function vectorizeWalls(imageData) {
     const median = probes[Math.floor(probes.length / 2)]
     return { ...wall, thickness: median || thicknessAt(ink, w, h, mx, my, theta) }
   })
+
+  // Почти прямую стену дотягиваем до строгой горизонтали или вертикали.
+  // Хаф меряет угол с точностью до градуса, но на коротком отрезке ошибается
+  // сильнее: перегородка между кабинками санузла на демо вышла с наклоном 5°,
+  // и в плане её стена уходила на 13 единиц вниз — кабинка получалась кривой,
+  // а дверь в ней сидела на косяке. Планировки почти всегда ортогональны,
+  // и наклон в пределах 7° — это ошибка измерения, а не замысел чертёжника.
+  for (const wall of walls) {
+    const dx = wall.x2 - wall.x1
+    const dy = wall.y2 - wall.y1
+    const len = Math.hypot(dx, dy)
+    if (len < 2) continue
+    const skew = (Math.abs(Math.atan2(dy, dx)) * 180) / Math.PI
+    const offH = Math.min(skew, Math.abs(skew - 180))
+    const offV = Math.abs(skew - 90)
+    // Короткому отрезку окно шире — угол у него меряется грубее. В санузле на
+    // демо остался кусок в 18 px с наклоном 15.5°, и кабинка выходила кривой.
+    const tol = len < 30 ? 20 : 7
+    if (offH <= tol) {
+      const y = (wall.y1 + wall.y2) / 2
+      wall.y1 = y
+      wall.y2 = y
+    } else if (offV <= tol) {
+      const x = (wall.x1 + wall.x2) / 2
+      wall.x1 = x
+      wall.x2 = x
+    }
+  }
   return {
     w,
     h,
