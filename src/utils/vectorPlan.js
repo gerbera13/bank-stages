@@ -58,7 +58,7 @@ export function extractPlanVector(imageData) {
   // а поле во все стороны съедало настоящие стены — на коттедже пропадали
   // четыре двери. Запас по длине нужен торцевой стене шахты: она чуть длиннее
   // ступени (41 против 26 на демо).
-  const isTread = (wall) => {
+  const inShaft = (wall, factor) => {
     const cx = (wall.x1 + wall.x2) / 2
     const cy = (wall.y1 + wall.y2) / 2
     const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
@@ -70,13 +70,20 @@ export function extractPlanVector(imageData) {
         cx <= s.x1 + mx &&
         cy >= s.y0 - my &&
         cy <= s.y1 + my &&
-        len <= s.tread * 2
+        len <= s.tread * factor
       )
     })
   }
-  const wallsForOpenings = vec.walls.filter((wall) => !isTread(wall))
+  // Два РАЗНЫХ порога, и это важно.
+  // Для проёмов — широкий (2×): под него попадает и торцевая стена шахты,
+  // на которой иначе появляется окно в конце лестницы, которого нет на чертеже.
+  // Для разбора на комнаты — узкий (1.3×): торцевую стену надо СОХРАНИТЬ, она
+  // отделяет кладовую под лестницей. Ступень на демо 26 единиц, торцевая
+  // стена 41 — порог 34 разводит их надёжно.
+  const wallsForOpenings = vec.walls.filter((wall) => !inShaft(wall, 2))
+  const wallsForRooms = vec.walls.filter((wall) => !inShaft(wall, 1.3))
 
-  const built = buildRooms(wallsForOpenings, vec.w, vec.h)
+  const built = buildRooms(wallsForRooms, vec.w, vec.h)
   const outline = built.outline
   const rooms = built.rooms.filter((r) => {
     const b = bboxOf(r.polygon)
