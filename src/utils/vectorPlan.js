@@ -22,36 +22,8 @@ export function extractPlanVector(imageData) {
     typeof performance !== 'undefined' && performance.now ? performance.now() : null
   const vec = vectorizeWalls(imageData)
   const flights = findStairFlights(vec.ink, vec.w, vec.h)
-  // Замыкаем марш его собственной геометрией. Лестничная шахта на чертеже
-  // часто открыта в коридор: стены по бокам есть, торцов нет — и грань выходит
-  // общая с коридором, лестница «размазывается» по нему. Ставим торцы по краям
-  // марша: это не выдуманная стена, а граница, которую задают сами ступени.
-  // Только для разбора на комнаты — в поиск проёмов эти отрезки не идут,
-  // иначе на них появились бы двери и окна.
-  const stairCaps = flights.flatMap((f) => {
-    const t0 = f.treads[0]
-    const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
-    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
-    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
-    const x0 = Math.min(...xs)
-    const x1 = Math.max(...xs)
-    const y0 = Math.min(...ys)
-    const y1 = Math.max(...ys)
-    return treadHorizontal
-      ? [
-          { x1: x0, y1: y0, x2: x1, y2: y0, thickness: 1, paired: false },
-          { x1: x0, y1: y1, x2: x1, y2: y1, thickness: 1, paired: false },
-        ]
-      : [
-          { x1: x0, y1: y0, x2: x0, y2: y1, thickness: 1, paired: false },
-          { x1: x1, y1: y0, x2: x1, y2: y1, thickness: 1, paired: false },
-        ]
-  })
-  const built = buildRooms([...vec.walls, ...stairCaps], vec.w, vec.h)
-  const outline = built.outline
-  // Промежутки между ступенями — тоже замкнутые грани, и планарный обход
-  // честно выдаёт их за помещения: на коттедже из 21 «комнаты» семь были
-  // щелями марша размером 47×12. Марш считается один раз, как лестница.
+  // Зона марша: по ней отличаем ступени и щели между ними от настоящих стен
+  // и комнат. Считаем её ДО разбора на комнаты — ступени надо убрать и оттуда.
   const shafts = flights.map((f) => {
     const xs = f.treads.flatMap((t) => [t.x1, t.x2])
     const ys = f.treads.flatMap((t) => [t.y1, t.y2])
@@ -59,11 +31,10 @@ export function extractPlanVector(imageData) {
     const y0 = Math.min(...ys)
     const x1 = Math.max(...xs)
     const y1 = Math.max(...ys)
-    // Марш находится не всегда целиком: на коттедже распознались пять ступеней
-    // из девяти, и щели остальных снова стали «комнатами». Зону тянем вдоль
-    // хода марша — поперёк ступеней, — оставляя ширину по ступени.
     // Ход марша — ПОПЕРЁК ступеней. По пропорциям габарита его не определить:
-    // ступени длинные, и коробка марша шире, чем он сам длинный.
+    // ступени длинные, и коробка марша шире, чем он сам длинный. Вдоль хода
+    // зону тянем: марш находится не всегда целиком, и щели остальных ступеней
+    // иначе снова становятся «комнатами».
     const t0 = f.treads[0]
     const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
     const horizontal = !treadHorizontal
@@ -75,10 +46,38 @@ export function extractPlanVector(imageData) {
       y0: horizontal ? y0 : y0 - grow,
       y1: horizontal ? y1 : y1 + grow,
       tread: Math.max(tread, 1),
-      // вдоль ступеней зона не растягивалась — запомним, по какой это оси
       treadAxis: treadHorizontal ? 'x' : 'y',
     }
   })
+
+  // Ступень — короткая линия внутри зоны марша. Из стен её надо убрать дважды:
+  // из поиска проёмов (иначе разрывы на ступенях становятся окнами) и из
+  // разбора на комнаты (иначе ступени режут шахту на ломтики — отделялась
+  // четверть марша, и обломок читался голубым пятном в начале лестницы).
+  // Поле добавляем ТОЛЬКО вдоль ступеней: по ходу марша зона и так растянута,
+  // а поле во все стороны съедало настоящие стены — на коттедже пропадали
+  // четыре двери. Запас по длине нужен торцевой стене шахты: она чуть длиннее
+  // ступени (41 против 26 на демо).
+  const isTread = (wall) => {
+    const cx = (wall.x1 + wall.x2) / 2
+    const cy = (wall.y1 + wall.y2) / 2
+    const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+    return shafts.some((s) => {
+      const mx = s.treadAxis === 'x' ? s.tread * 0.5 : 0
+      const my = s.treadAxis === 'y' ? s.tread * 0.5 : 0
+      return (
+        cx >= s.x0 - mx &&
+        cx <= s.x1 + mx &&
+        cy >= s.y0 - my &&
+        cy <= s.y1 + my &&
+        len <= s.tread * 2
+      )
+    })
+  }
+  const wallsForOpenings = vec.walls.filter((wall) => !isTread(wall))
+
+  const built = buildRooms(wallsForOpenings, vec.w, vec.h)
+  const outline = built.outline
   const rooms = built.rooms.filter((r) => {
     const b = bboxOf(r.polygon)
     const cx = b.x + b.w / 2
@@ -91,36 +90,6 @@ export function extractPlanVector(imageData) {
       const along = s.treadAxis === 'x' ? b.h : b.w
       return along < s.tread
     })
-  })
-  // Ступени попадают в стены наравне с настоящими — и разрывы на них
-  // становились окнами: на демо четыре лишних окна из двадцати двух были
-  // штрихами марша. Из поиска проёмов ступени исключаем: короткая линия
-  // внутри марша — это ступень, а не стена с окном.
-  const wallsForOpenings = vec.walls.filter((wall) => {
-    const cx = (wall.x1 + wall.x2) / 2
-    const cy = (wall.y1 + wall.y2) / 2
-    const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
-    return !shafts.some(
-      // Зону берём с полем, а длину с запасом. ТОРЦЕВАЯ стена шахты чуть
-      // длиннее ступени (41 против 26 на демо), а её середина попадала на
-      // пиксель мимо зоны — и на ней появлялось окно в конце лестницы,
-      // которого на чертеже нет. Боковые стены шахты намного длиннее и под
-      // правило по длине не подпадают.
-      (s) => {
-        // Поле добавляем ТОЛЬКО вдоль ступеней: по ходу марша зона и так
-        // растянута. Поле во все стороны съедало настоящие стены — на
-        // коттедже пропадали четыре двери.
-        const mx = s.treadAxis === 'x' ? s.tread * 0.5 : 0
-        const my = s.treadAxis === 'y' ? s.tread * 0.5 : 0
-        return (
-          cx >= s.x0 - mx &&
-          cx <= s.x1 + mx &&
-          cy >= s.y0 - my &&
-          cy <= s.y1 + my &&
-          len <= s.tread * 2
-        )
-      }
-    )
   })
   const { doors, windows } = findOpenings(
     wallsForOpenings,
@@ -436,6 +405,48 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   for (const d of v.doors) attach(d, 'door')
   for (const wnd of v.windows) attach(wnd, 'window')
 
+  // Вход на лестницу. Марш примыкает к коридору широким проёмом между двумя
+  // своими боковыми стенами — на демо это 40 px. Разрывом стены его не увидеть:
+  // с той стороны стены просто нет, а проём ищется как перерыв в сплошной
+  // линии. Ставим две двери по краям этого проёма — так на чертеже и читается
+  // вход на лестницу.
+  for (const f of v.flights) {
+    const t0 = f.treads[0]
+    const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
+    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
+    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
+    const a0 = treadHorizontal ? Math.min(...xs) : Math.min(...ys)
+    const a1 = treadHorizontal ? Math.max(...xs) : Math.max(...ys)
+    const bTop = treadHorizontal ? Math.min(...ys) : Math.min(...xs)
+    const width = Math.max(18, tw((a1 - a0) * 0.35))
+    // Комнату и линию входа берём ОДИН раз — по середине торца марша. Иначе
+    // каждая из двух дверей притягивается к контуру сама по себе и обе
+    // сходятся в одну точку.
+    const midA = (a0 + a1) / 2
+    const px0 = treadHorizontal ? tx(midA) : tx(bTop)
+    const py0 = treadHorizontal ? ty(bTop) : ty(midA)
+    let best = -1
+    let bestD = Infinity
+    for (let i = 0; i < rooms.length; i++) {
+      const d = distToOutline(rooms[i].polygon, px0, py0)
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    if (best < 0 || bestD > 40) continue
+    const line = nearestOnOutline(rooms[best].polygon, px0, py0)
+    for (const a of [a0, a1]) {
+      out[best].doors.push({
+        x: Math.round(treadHorizontal ? tx(a) : line.x),
+        y: Math.round(treadHorizontal ? line.y : ty(a)),
+        w: width,
+        side: treadHorizontal ? 'top' : 'left',
+        style: 'cross',
+      })
+    }
+  }
+
   // Сантехника: приборы делают помещение санузлом, бачок унитаза — к стене.
   for (const item of v.details?.sanitary ?? []) {
     let best = -1
@@ -604,7 +615,7 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       }
       while (count > 2 && top + (count - 1) * step > box.y + box.h) count--
       if (count >= 2) {
-        out[host].features.push({
+        const entry = {
           type: 'stairs',
           x: tx(x0),
           y: top,
@@ -612,7 +623,8 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
           count,
           len: Math.max(16, tw(len)),
           dir: 'right',
-        })
+        }
+        out[host].features.push(entry)
       }
     } else {
       objects.push({ type: 'stairs', x: tx(cx), y: ty(cy), name: 'Наружная лестница' })
