@@ -436,10 +436,43 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
     if (best < 0 || bestD > 40) continue
     const line = nearestOnOutline(rooms[best].polygon, px0, py0)
+    const bEnd = treadHorizontal ? Math.max(...ys) : Math.max(...xs)
+
+    // Боковые стены марша. Векторный движок внутренних стен не отдаёт вовсе —
+    // контур комнаты рисуется по полигону, — и лестница стояла в помещении
+    // безо всякой ограды. Ставим два отрезка вдоль марша, от линии входа до
+    // его дальнего конца. Отрисовка гасит обводку полигона у комнаты с
+    // перегородками, поэтому заодно обводим её саму: иначе комната потеряет
+    // собственные стены.
+    const poly = out[best].polygon
+    for (let k = 0; k < poly.length; k++) {
+      out[best].features.push({
+        type: 'partition',
+        points: [poly[k], poly[(k + 1) % poly.length]],
+        strokeWidth: 7,
+      })
+    }
     for (const a of [a0, a1]) {
+      const from = treadHorizontal ? [tx(a), line.y] : [line.x, ty(a)]
+      const to = treadHorizontal ? [tx(a), ty(bEnd)] : [tx(bEnd), ty(a)]
+      out[best].features.push({
+        type: 'partition',
+        points: [from.map(Math.round), to.map(Math.round)],
+        strokeWidth: 7,
+      })
+    }
+
+    // Двери отодвигаем НАРУЖУ от марша на половину своей ширины, иначе они
+    // наезжают на ступени: марш занимает как раз промежуток между ними.
+    const half = Math.round(width / 2)
+    for (const [a, sign] of [
+      [a0, -1],
+      [a1, 1],
+    ]) {
+      const shift = sign * half
       out[best].doors.push({
-        x: Math.round(treadHorizontal ? tx(a) : line.x),
-        y: Math.round(treadHorizontal ? line.y : ty(a)),
+        x: Math.round(treadHorizontal ? tx(a) + shift : line.x),
+        y: Math.round(treadHorizontal ? line.y : ty(a) + shift),
         w: width,
         side: treadHorizontal ? 'top' : 'left',
         style: 'cross',
