@@ -506,45 +506,84 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     const midA = (a0 + a1) / 2
     const px0 = treadHorizontal ? tx(midA) : tx(bTop)
     const py0 = treadHorizontal ? ty(bTop) : ty(midA)
-    let best = -1
-    let bestD = Infinity
-    for (let i = 0; i < rooms.length; i++) {
-      const d = distToOutline(rooms[i].polygon, px0, py0)
-      if (d < bestD) {
-        bestD = d
-        best = i
+    // Комната лестницы — та, что СОДЕРЖИТ марш. По близости к контуру
+    // выходило иначе: точка входа лежит ровно между проёмом и коридором,
+    // расстояния равны, и дверь уходила к коридору вместо проёма.
+    const cMid = [tx((a0 + a1) / 2), ty((bTop + (treadHorizontal ? Math.max(...ys) : Math.max(...xs))) / 2)]
+    let best = rooms.findIndex((r) => inside(r.polygon, cMid[0], cMid[1]))
+    if (best < 0) {
+      let bestD = Infinity
+      for (let i = 0; i < rooms.length; i++) {
+        const d = distToOutline(rooms[i].polygon, px0, py0)
+        if (d < bestD) {
+          bestD = d
+          best = i
+        }
+      }
+      if (best < 0 || bestD > 40) continue
+    }
+
+    // Двери ставим в БОКОВЫЕ стены лестничного проёма — там, где к нему
+    // примыкают помещения. Раньше они лежали на линии входа поперёк марша и
+    // приходились ровно на верхнюю ступень: проём тогда был открыт сверху и
+    // другого места не было. Теперь у него есть стены на всю высоту, и вход
+    // на лестницу там, где и на чертеже — сбоку, из коридора.
+    const host = out[best]
+    const runVertical = treadHorizontal
+    const put = []
+    for (let k = 0; k < host.polygon.length; k++) {
+      const A = host.polygon[k]
+      const B = host.polygon[(k + 1) % host.polygon.length]
+      // грань вдоль хода марша
+      if (runVertical ? Math.abs(B[0] - A[0]) > 3 : Math.abs(B[1] - A[1]) > 3) continue
+      if (Math.hypot(B[0] - A[0], B[1] - A[1]) < width) continue
+      // с какой комнатой она общая и на каком участке
+      for (let q = 0; q < out.length; q++) {
+        if (q === best) continue
+        for (let m = 0; m < out[q].polygon.length; m++) {
+          const C = out[q].polygon[m]
+          const D = out[q].polygon[(m + 1) % out[q].polygon.length]
+          const sameLine = runVertical
+            ? Math.abs(C[0] - A[0]) <= 3 && Math.abs(D[0] - A[0]) <= 3
+            : Math.abs(C[1] - A[1]) <= 3 && Math.abs(D[1] - A[1]) <= 3
+          if (!sameLine) continue
+          const [p0, p1] = runVertical ? [A[1], B[1]] : [A[0], B[0]]
+          const [q0, q1] = runVertical ? [C[1], D[1]] : [C[0], D[0]]
+          const lo = Math.max(Math.min(p0, p1), Math.min(q0, q1))
+          const hi = Math.min(Math.max(p0, p1), Math.max(q0, q1))
+          if (hi - lo < width) continue
+          const at = (lo + hi) / 2
+          put.push(runVertical ? { x: A[0], y: at } : { x: at, y: A[1] })
+        }
       }
     }
-    if (best < 0 || bestD > 40) continue
-    const line = nearestOnOutline(rooms[best].polygon, px0, py0)
-
-    // Двери ставим по КРАЯМ ПРОСВЕТА комнаты на линии входа, а не по краям
-    // марша: марш уже вписан в просвет, и двери по его краям наезжали на
-    // ступени. Просвет — то же, чем ограничен и сам марш.
-    const bLine = treadHorizontal ? line.y : line.x
-    const cuts = []
-    for (let k = 0; k < out[best].polygon.length; k++) {
-      const [ax, ay] = out[best].polygon[k]
-      const [bx, by] = out[best].polygon[(k + 1) % out[best].polygon.length]
-      const p0 = treadHorizontal ? ay : ax
-      const p1 = treadHorizontal ? by : bx
-      if (p0 > bLine === p1 > bLine) continue
-      const q0 = treadHorizontal ? ax : ay
-      const q1 = treadHorizontal ? bx : by
-      cuts.push(q0 + ((q1 - q0) * (bLine - p0)) / (p1 - p0))
+    // По ОДНОЙ двери на сторону — ближайшую ко входу на лестницу. Иначе на
+    // каждой боковой стене их выходит по две: проём граничит и с коридором,
+    // и с помещением ниже.
+    const hb = bboxOf(host.polygon)
+    const midX = hb.x + hb.w / 2
+    const midY = hb.y + hb.h / 2
+    const entry = runVertical ? ty(bTop) : tx(bTop)
+    const bySide = new Map()
+    for (const d of put) {
+      const side = runVertical
+        ? d.x < midX
+          ? 'left'
+          : 'right'
+        : d.y < midY
+          ? 'top'
+          : 'bottom'
+      const dist = Math.abs((runVertical ? d.y : d.x) - entry)
+      const cur = bySide.get(side)
+      if (!cur || dist < cur.dist) bySide.set(side, { ...d, side, dist })
     }
-    cuts.sort((p, q) => p - q)
-    const mid = treadHorizontal ? tx(midA) : ty(midA)
-    let edges = [treadHorizontal ? tx(a0) : ty(a0), treadHorizontal ? tx(a1) : ty(a1)]
-    for (let k = 0; k + 1 < cuts.length; k += 2) {
-      if (mid >= cuts[k] - 6 && mid <= cuts[k + 1] + 6) edges = [cuts[k], cuts[k + 1]]
-    }
-    for (const e of edges) {
-      out[best].doors.push({
-        x: Math.round(treadHorizontal ? e : line.x),
-        y: Math.round(treadHorizontal ? line.y : e),
+    for (const d of bySide.values()) {
+      if (host.doors.some((o) => Math.hypot(o.x - d.x, o.y - d.y) < width)) continue
+      host.doors.push({
+        x: Math.round(d.x),
+        y: Math.round(d.y),
         w: width,
-        side: treadHorizontal ? 'top' : 'left',
+        side: d.side,
         style: 'cross',
       })
     }
