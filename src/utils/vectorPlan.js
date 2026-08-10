@@ -436,43 +436,32 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
     if (best < 0 || bestD > 40) continue
     const line = nearestOnOutline(rooms[best].polygon, px0, py0)
-    const bEnd = treadHorizontal ? Math.max(...ys) : Math.max(...xs)
 
-    // Боковые стены марша. Векторный движок внутренних стен не отдаёт вовсе —
-    // контур комнаты рисуется по полигону, — и лестница стояла в помещении
-    // безо всякой ограды. Ставим два отрезка вдоль марша, от линии входа до
-    // его дальнего конца. Отрисовка гасит обводку полигона у комнаты с
-    // перегородками, поэтому заодно обводим её саму: иначе комната потеряет
-    // собственные стены.
-    const poly = out[best].polygon
-    for (let k = 0; k < poly.length; k++) {
-      out[best].features.push({
-        type: 'partition',
-        points: [poly[k], poly[(k + 1) % poly.length]],
-        strokeWidth: 7,
-      })
+    // Двери ставим по КРАЯМ ПРОСВЕТА комнаты на линии входа, а не по краям
+    // марша: марш уже вписан в просвет, и двери по его краям наезжали на
+    // ступени. Просвет — то же, чем ограничен и сам марш.
+    const bLine = treadHorizontal ? line.y : line.x
+    const cuts = []
+    for (let k = 0; k < out[best].polygon.length; k++) {
+      const [ax, ay] = out[best].polygon[k]
+      const [bx, by] = out[best].polygon[(k + 1) % out[best].polygon.length]
+      const p0 = treadHorizontal ? ay : ax
+      const p1 = treadHorizontal ? by : bx
+      if (p0 > bLine === p1 > bLine) continue
+      const q0 = treadHorizontal ? ax : ay
+      const q1 = treadHorizontal ? bx : by
+      cuts.push(q0 + ((q1 - q0) * (bLine - p0)) / (p1 - p0))
     }
-    for (const a of [a0, a1]) {
-      const from = treadHorizontal ? [tx(a), line.y] : [line.x, ty(a)]
-      const to = treadHorizontal ? [tx(a), ty(bEnd)] : [tx(bEnd), ty(a)]
-      out[best].features.push({
-        type: 'partition',
-        points: [from.map(Math.round), to.map(Math.round)],
-        strokeWidth: 7,
-      })
+    cuts.sort((p, q) => p - q)
+    const mid = treadHorizontal ? tx(midA) : ty(midA)
+    let edges = [treadHorizontal ? tx(a0) : ty(a0), treadHorizontal ? tx(a1) : ty(a1)]
+    for (let k = 0; k + 1 < cuts.length; k += 2) {
+      if (mid >= cuts[k] - 6 && mid <= cuts[k + 1] + 6) edges = [cuts[k], cuts[k + 1]]
     }
-
-    // Двери отодвигаем НАРУЖУ от марша на половину своей ширины, иначе они
-    // наезжают на ступени: марш занимает как раз промежуток между ними.
-    const half = Math.round(width / 2)
-    for (const [a, sign] of [
-      [a0, -1],
-      [a1, 1],
-    ]) {
-      const shift = sign * half
+    for (const e of edges) {
       out[best].doors.push({
-        x: Math.round(treadHorizontal ? tx(a) + shift : line.x),
-        y: Math.round(treadHorizontal ? line.y : ty(a) + shift),
+        x: Math.round(treadHorizontal ? e : line.x),
+        y: Math.round(treadHorizontal ? line.y : e),
         w: width,
         side: treadHorizontal ? 'top' : 'left',
         style: 'cross',
@@ -640,6 +629,26 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       // висел в воздухе. Обрезаем по комнате: лучше показать часть внутри,
       // чем целое снаружи.
       const box = rooms[host].rect
+      // Поперёк — вписываем в ПРОСВЕТ комнаты на высоте марша, а не в её
+      // габарит. Коридор на демо Г-образный: марш стоит в его отростке
+      // шириной 50 единиц, а сам выходил 26 единиц шириной со смещением
+      // вправо и торчал за отросток. Стенки отростка при этом рисуются,
+      // и казалось, что у лестницы нет боковых стен.
+      const midY = ty((y0 + Math.max(...ys)) / 2)
+      const poly = rooms[host].polygon
+      const cuts = []
+      for (let k = 0; k < poly.length; k++) {
+        const [ax, ay] = poly[k]
+        const [bx, by] = poly[(k + 1) % poly.length]
+        if (ay > midY === by > midY) continue
+        cuts.push(ax + ((bx - ax) * (midY - ay)) / (by - ay))
+      }
+      cuts.sort((p, q) => p - q)
+      let lane = null
+      for (let k = 0; k + 1 < cuts.length; k += 2) {
+        if (tx(x0) >= cuts[k] - 4 && tx(x0) <= cuts[k + 1] + 4)
+          lane = { a: cuts[k], b: cuts[k + 1] }
+      }
       let top = ty(y0)
       if (top < box.y) {
         const skip = Math.ceil((box.y - top) / step)
@@ -648,13 +657,20 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       }
       while (count > 2 && top + (count - 1) * step > box.y + box.h) count--
       if (count >= 2) {
+        // ширину и положение марша подгоняем под просвет
+        let sx = tx(x0)
+        let slen = Math.max(16, tw(len))
+        if (lane && lane.b - lane.a > 10) {
+          slen = Math.max(16, Math.round((lane.b - lane.a) * 0.78))
+          sx = Math.round((lane.a + lane.b) / 2 - slen / 2)
+        }
         const entry = {
           type: 'stairs',
-          x: tx(x0),
+          x: sx,
           y: top,
           step,
           count,
-          len: Math.max(16, tw(len)),
+          len: slen,
           dir: 'right',
         }
         out[host].features.push(entry)
