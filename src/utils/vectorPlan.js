@@ -422,6 +422,15 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       w: Math.max(kind === 'door' ? 18 : 36, tw(op.width)),
       side,
     }
+    // Двойная стена даёт две грани, и проём в ней находится дважды — по разу
+    // на каждой. Повтор виден как две двери в пяти единицах друг от друга.
+    const list = kind === 'door' ? 'doors' : 'windows'
+    const near = out.some((r) =>
+      // Радиус небольшой и не зависит от ширины: окна бывают широкими и идут
+      // подряд по стене — по половине их ширины склеивались соседние.
+      r[list].some((o) => Math.hypot(o.x - item.x, o.y - item.y) < 10),
+    )
+    if (near) return
     if (kind === 'door') out[best].doors.push({ ...item, style: 'cross' })
     else out[best].windows.push({ ...item, blue: true })
   }
@@ -707,13 +716,36 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
         if (tx(x0) >= cuts[k] - 4 && tx(x0) <= cuts[k + 1] + 4)
           lane = { a: cuts[k], b: cuts[k + 1] }
       }
+      // Начало марша — там, где начинается сам лестничный проход, а не там,
+      // где нашлась первая ступень. Верхние ступени заходили в коридор выше
+      // линии стены: боковых стен там нет, и марш висел в проходе.
+      const laneAt = (yy) => {
+        const cs = []
+        for (let k = 0; k < poly.length; k++) {
+          const [ax, ay] = poly[k]
+          const [bx, by] = poly[(k + 1) % poly.length]
+          if (ay > yy === by > yy) continue
+          cs.push(ax + ((bx - ax) * (yy - ay)) / (by - ay))
+        }
+        cs.sort((p, q) => p - q)
+        for (let k = 0; k + 1 < cs.length; k += 2)
+          if (tx(x0) >= cs[k] - 4 && tx(x0) <= cs[k + 1] + 4) return cs[k + 1] - cs[k]
+        return Infinity
+      }
+      const wide = (lane ? lane.b - lane.a : tw(len)) * 2.5
       let top = ty(y0)
+      const bottom = top + (count - 1) * step
+      while (count > 2 && laneAt(top + step * 0.5) > wide) {
+        top += step
+        count--
+      }
       if (top < box.y) {
         const skip = Math.ceil((box.y - top) / step)
         top += skip * step
         count -= skip
       }
-      while (count > 2 && top + (count - 1) * step > box.y + box.h) count--
+      while (count > 2 && top + (count - 1) * step > Math.min(box.y + box.h, bottom + step))
+        count--
       if (count >= 2) {
         // ширину и положение марша подгоняем под просвет
         let sx = tx(x0)
