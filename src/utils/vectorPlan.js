@@ -617,8 +617,9 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     const db = sb.y + sb.h - cy
     const m = Math.min(dl, dr, dt, db)
     const tankDir = m === dl ? 'left' : m === dr ? 'right' : m === dt ? 'up' : 'down'
-    // Придвигаем прибор ВПЛОТНУЮ к своей стене: на чертеже он к ней и стоит,
-    // а по центру пятна чернил получается зазор в несколько единиц.
+    // Придвигаем к стене ТОЛЬКО унитаз: у него бачок должен упираться в стену,
+    // и по центру пятна чернил остаётся заметный зазор. Раковину не трогаем —
+    // она и так встаёт по чертежу, а сдвиг её только портит.
     const fw = Math.max(10, tw(item.w))
     const fh = Math.max(10, tw(item.h))
     const box = out[best].rect ?? bboxOf(out[best].polygon)
@@ -630,10 +631,12 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     const reachOut = along + tank
     let fx = tx(item.x)
     let fy = ty(item.y)
-    if (tankDir === 'up') fy = box.y + reachOut
-    else if (tankDir === 'down') fy = box.y + box.h - reachOut
-    else if (tankDir === 'left') fx = box.x + reachOut
-    else fx = box.x + box.w - reachOut
+    if (item.type === 'toilet') {
+      if (tankDir === 'up') fy = box.y + reachOut
+      else if (tankDir === 'down') fy = box.y + box.h - reachOut
+      else if (tankDir === 'left') fx = box.x + reachOut
+      else fx = box.x + box.w - reachOut
+    }
     out[best].features.push({
       type: item.type,
       x: Math.round(fx),
