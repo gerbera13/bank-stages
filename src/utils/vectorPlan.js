@@ -22,7 +22,32 @@ export function extractPlanVector(imageData) {
     typeof performance !== 'undefined' && performance.now ? performance.now() : null
   const vec = vectorizeWalls(imageData)
   const flights = findStairFlights(vec.ink, vec.w, vec.h)
-  const built = buildRooms(vec.walls, vec.w, vec.h)
+  // Замыкаем марш его собственной геометрией. Лестничная шахта на чертеже
+  // часто открыта в коридор: стены по бокам есть, торцов нет — и грань выходит
+  // общая с коридором, лестница «размазывается» по нему. Ставим торцы по краям
+  // марша: это не выдуманная стена, а граница, которую задают сами ступени.
+  // Только для разбора на комнаты — в поиск проёмов эти отрезки не идут,
+  // иначе на них появились бы двери и окна.
+  const stairCaps = flights.flatMap((f) => {
+    const t0 = f.treads[0]
+    const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
+    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
+    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
+    const x0 = Math.min(...xs)
+    const x1 = Math.max(...xs)
+    const y0 = Math.min(...ys)
+    const y1 = Math.max(...ys)
+    return treadHorizontal
+      ? [
+          { x1: x0, y1: y0, x2: x1, y2: y0, thickness: 1, paired: false },
+          { x1: x0, y1: y1, x2: x1, y2: y1, thickness: 1, paired: false },
+        ]
+      : [
+          { x1: x0, y1: y0, x2: x0, y2: y1, thickness: 1, paired: false },
+          { x1: x1, y1: y0, x2: x1, y2: y1, thickness: 1, paired: false },
+        ]
+  })
+  const built = buildRooms([...vec.walls, ...stairCaps], vec.w, vec.h)
   const outline = built.outline
   // Промежутки между ступенями — тоже замкнутые грани, и планарный обход
   // честно выдаёт их за помещения: на коттедже из 21 «комнаты» семь были
@@ -58,10 +83,14 @@ export function extractPlanVector(imageData) {
     const b = bboxOf(r.polygon)
     const cx = b.x + b.w / 2
     const cy = b.y + b.h / 2
-    const thin = Math.min(b.w, b.h)
-    return !shafts.some(
-      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && thin < s.tread
-    )
+    return !shafts.some((s) => {
+      if (cx < s.x0 || cx > s.x1 || cy < s.y0 || cy > s.y1) return false
+      // Щель между ступенями тонкая ВДОЛЬ ХОДА марша. Сама шахта по этой оси
+      // длинная — раньше её мерили по короткой стороне и отбрасывали вместе
+      // со щелями, из-за чего лестница не выделялась в отдельное помещение.
+      const along = s.treadAxis === 'x' ? b.h : b.w
+      return along < s.tread
+    })
   })
   // Ступени попадают в стены наравне с настоящими — и разрывы на них
   // становились окнами: на демо четыре лишних окна из двадцати двух были
@@ -479,13 +508,38 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     // Марш целиком вне пятна застройки и не примыкающий к нему — это не
     // лестница, а штриховка на полях чертежа.
     if (v.outline) {
+      // Марш вне контура — либо наружное крыльцо (оно примыкает к зданию),
+      // либо штриховка на полях чертежа (она далеко). Отличаем по удалению:
+      // крыльцо коттеджа лежит вплотную, а засечки БТИ — за десятки пикселей.
+      // Раньше правило было «хоть одна ступень внутри контура», и стоило
+      // контуру чуть сдвинуться, как крыльцо пропадало.
       const anyInside = f.treads.some(
         (t) =>
           inside(v.outline, (t.x1 + t.x2) / 2, (t.y1 + t.y2) / 2) ||
           inside(v.outline, t.x1, t.y1) ||
           inside(v.outline, t.x2, t.y2)
       )
-      if (!anyInside) continue
+      if (!anyInside) {
+        const tread =
+          f.treads.reduce((a, t) => a + Math.hypot(t.x2 - t.x1, t.y2 - t.y1), 0) /
+          f.treads.length
+        let near = Infinity
+        for (const t of f.treads) {
+          const px = (t.x1 + t.x2) / 2
+          const py = (t.y1 + t.y2) / 2
+          for (let k = 0; k < v.outline.length; k++) {
+            const [ax, ay] = v.outline[k]
+            const [bx, by] = v.outline[(k + 1) % v.outline.length]
+            const vx = bx - ax
+            const vy = by - ay
+            const l2 = vx * vx + vy * vy || 1
+            let q = ((px - ax) * vx + (py - ay) * vy) / l2
+            q = Math.max(0, Math.min(1, q))
+            near = Math.min(near, Math.hypot(px - (ax + vx * q), py - (ay + vy * q)))
+          }
+        }
+        if (near > tread * 1.5) continue
+      }
     }
     const xs = f.treads.flatMap((t) => [t.x1, t.x2])
     const ys = f.treads.flatMap((t) => [t.y1, t.y2])
