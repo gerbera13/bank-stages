@@ -383,8 +383,8 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
   // Расстояние от точки до контура комнаты. По габариту считать нельзя:
   // у Г-образной комнаты точка бывает внутри габарита, но вне самой комнаты,
   // и проём привязывался к ней, повисая в пустоте.
-  const distToOutline = (poly, px, py) => {
-    let best = Infinity
+  const nearestOnOutline = (poly, px, py) => {
+    let best = { d: Infinity, x: px, y: py }
     for (let k = 0; k < poly.length; k++) {
       const [ax, ay] = poly[k]
       const [bx, by] = poly[(k + 1) % poly.length]
@@ -393,10 +393,14 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       const l2 = vx * vx + vy * vy || 1
       let t = ((px - ax) * vx + (py - ay) * vy) / l2
       t = Math.max(0, Math.min(1, t))
-      best = Math.min(best, Math.hypot(px - (ax + vx * t), py - (ay + vy * t)))
+      const qx = ax + vx * t
+      const qy = ay + vy * t
+      const d = Math.hypot(px - qx, py - qy)
+      if (d < best.d) best = { d, x: qx, y: qy }
     }
     return best
   }
+  const distToOutline = (poly, px, py) => nearestOnOutline(poly, px, py).d
 
   const attach = (op, kind) => {
     const px = tx(op.x)
@@ -413,11 +417,16 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     if (best < 0 || bestD > 24) return
     const probe = Math.max(4, Math.round(Math.min(v.vec.w, v.vec.h) * 0.03))
     const side = sideForRoom(v.rooms[best].polygon, op, probe)
+    // Садим проём ровно на контур комнаты. Осевая линия стены и граница
+    // помещения совпадают не всегда: выравнивание граней по осям и чистка игл
+    // сдвигают полигон, и проём повисал в стороне — на коттедже ровно на 10
+    // единиц, на БТИ до 21.
+    const snap = nearestOnOutline(rooms[best].polygon, px, py)
     // Положение оставляем настоящее, а не притянутое к габариту: у Г-образной
     // комнаты грань идёт не по габариту, и притягивание уводило проём в стену.
     const item = {
-      x: px,
-      y: py,
+      x: Math.round(snap.x),
+      y: Math.round(snap.y),
       w: Math.max(kind === 'door' ? 18 : 36, tw(op.width)),
       side,
     }
