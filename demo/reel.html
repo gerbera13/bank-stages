@@ -1,0 +1,1383 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <title>FloorPlan Studio — демо-ролик</title>
+    <style>
+      /* ============================================================
+         Демо-ролик FloorPlan Studio.
+         Сцена 1920×1080, вписывается в окно. Тайминги совпадают
+         со сценарием (demo/сценарий.md). Пробел — пауза, ←/→ — сцены.
+         Палитра — токены проекта (src/index.css).
+         ============================================================ */
+      :root {
+        --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+          sans-serif;
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --subtle: #94a3b8;
+        --border: #e2e8f0;
+        --accent: #6366f1;
+        --accent-soft: #eef2ff;
+        --ok: #10b981;
+        --elevator: #3b82f6;
+        --camera: #8b5cf6;
+        --atm: #10b981;
+        --stairs: #f97316;
+        --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.1);
+        --shadow-xl: 0 40px 90px -30px rgba(15, 23, 42, 0.28);
+        --ease: cubic-bezier(0.22, 1, 0.36, 1);
+        --ps: running;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: #0b1020;
+        font-family: var(--font-sans);
+        color: var(--text);
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* ── Сцена: 1920×1080, масштабируется под окно ───────────────── */
+      #fit {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+      }
+
+      #stage {
+        width: 1920px;
+        height: 1080px;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        overflow: hidden;
+        background: var(--bg);
+        transform-origin: center;
+        transform: translate(-50%, -50%);
+      }
+
+      /* Мягкое «дыхание» фона — чтобы кадр не был мёртвым */
+      #stage::before {
+        content: '';
+        position: absolute;
+        inset: -20%;
+        background:
+          radial-gradient(60% 50% at 18% 12%, #e9edff 0%, transparent 60%),
+          radial-gradient(55% 45% at 85% 85%, #eefaf4 0%, transparent 60%);
+        opacity: 0.9;
+        animation: drift 40s var(--ease) infinite alternate;
+        animation-play-state: var(--ps);
+      }
+
+      @keyframes drift {
+        to {
+          transform: translate3d(-2%, -1.5%, 0) scale(1.06);
+        }
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        padding: 96px 120px;
+        opacity: 0;
+        visibility: hidden;
+        transition:
+          opacity 700ms var(--ease),
+          visibility 700ms;
+      }
+
+      .scene.is-active {
+        opacity: 1;
+        visibility: visible;
+      }
+
+      .scene *,
+      .scene::before,
+      .scene::after {
+        animation-play-state: var(--ps);
+      }
+
+      /* ── Общая типографика ───────────────────────────────────────── */
+      .kicker {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      h2 {
+        font-size: 76px;
+        line-height: 1.05;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+
+      .lede {
+        font-size: 30px;
+        line-height: 1.45;
+        color: var(--muted);
+        max-width: 21em;
+        font-weight: 400;
+      }
+
+      .num {
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Появления */
+      .in {
+        opacity: 0;
+        animation: rise 900ms var(--ease) forwards;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(26px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .fade {
+        opacity: 0;
+        animation: fadein 1000ms var(--ease) forwards;
+      }
+
+      @keyframes fadein {
+        to {
+          opacity: 1;
+        }
+      }
+
+      /* ============================================================
+         Сцена 1 — чертёж из архива
+         ============================================================ */
+      #s1 {
+        display: grid;
+        grid-template-columns: 0.86fr 1.14fr;
+        gap: 84px;
+        align-content: center;
+        align-items: center;
+      }
+
+      #s1 figure {
+        overflow: hidden;
+        border-radius: 10px;
+      }
+
+      #s1 img {
+        display: block;
+        width: 100%;
+        filter: saturate(0.18) contrast(1.05);
+        opacity: 0;
+        transform: scale(1.12);
+        animation: s1img 15s var(--ease) forwards;
+        box-shadow: 0 34px 80px -46px rgba(15, 23, 42, 0.55);
+      }
+
+      @keyframes s1img {
+        0% {
+          opacity: 0;
+          transform: scale(1.12);
+        }
+        22% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      #s1 .big {
+        font-size: 70px;
+        font-weight: 700;
+        letter-spacing: -0.035em;
+        line-height: 1.08;
+      }
+
+      #s1 .sub {
+        margin-top: 26px;
+        font-size: 28px;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      /* ============================================================
+         Сцена 2 — титул
+         ============================================================ */
+      #s2 {
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        text-align: center;
+        gap: 34px;
+      }
+
+      .mark {
+        width: 108px;
+        height: 108px;
+        border-radius: 30px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(150deg, #818cf8, #6366f1 55%, #4f46e5);
+        box-shadow:
+          0 18px 40px -18px rgba(79, 70, 229, 0.75),
+          inset 0 1px 0 rgba(255, 255, 255, 0.45);
+      }
+
+      #s2 .title {
+        font-size: 116px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+
+      #s2 .tag {
+        font-size: 34px;
+        color: var(--muted);
+        letter-spacing: -0.01em;
+      }
+
+      #s2 .rule {
+        width: 0;
+        height: 3px;
+        border-radius: 2px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        animation: grow 1400ms var(--ease) 900ms forwards;
+      }
+
+      @keyframes grow {
+        to {
+          width: 460px;
+        }
+      }
+
+      #s2 .stack {
+        display: flex;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .pill {
+        padding: 11px 20px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 19px;
+        font-weight: 500;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      /* ============================================================
+         Сцена 3 — было / стало
+         ============================================================ */
+      #s3 {
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 40px;
+      }
+
+      #s3 .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 56px;
+        align-items: start;
+      }
+
+      .panel {
+        position: relative;
+      }
+
+      .panel .cap {
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        margin-bottom: 18px;
+      }
+
+      .panel.after .cap {
+        color: var(--accent);
+      }
+
+      .shot {
+        width: 100%;
+        height: 470px;
+        object-fit: contain;
+        padding: 20px;
+        border-radius: 18px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-xl);
+        display: block;
+      }
+
+      .panel.after .shot {
+        border-color: #dfe3f5;
+      }
+
+      #s3 .panel.before {
+        opacity: 0;
+        animation: rise 900ms var(--ease) 200ms forwards;
+      }
+
+      #s3 .panel.after {
+        opacity: 0;
+        animation: rise 1000ms var(--ease) 3200ms forwards;
+      }
+
+      #s3 .arrow {
+        position: absolute;
+        left: 50%;
+        top: 54%;
+        transform: translate(-50%, -50%) scale(0.6);
+        width: 96px;
+        height: 96px;
+        border-radius: 999px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-lg);
+        display: grid;
+        place-items: center;
+        color: var(--accent);
+        opacity: 0;
+        animation: pop 800ms var(--ease) 2700ms forwards;
+        z-index: 3;
+      }
+
+      @keyframes pop {
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      #s3 .stats {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        opacity: 0;
+        animation: rise 900ms var(--ease) 5200ms forwards;
+      }
+
+      .stat {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px 26px;
+        text-align: center;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      .stat b {
+        display: block;
+        font-size: 34px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      .stat span {
+        font-size: 17px;
+        color: var(--muted);
+      }
+
+      /* ============================================================
+         Сцена 4 — как устроен разбор
+         ============================================================ */
+      #s4 {
+        display: grid;
+        grid-template-columns: 1fr 1.08fr;
+        gap: 86px;
+        align-content: center;
+      }
+
+      #s4 .left {
+        display: grid;
+        align-content: center;
+        gap: 26px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 52px 1fr;
+        gap: 20px;
+        align-items: baseline;
+        opacity: 0;
+        animation: rise 700ms var(--ease) forwards;
+      }
+
+      .step i {
+        font-style: normal;
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--accent);
+        background: var(--accent-soft);
+        border-radius: 999px;
+        width: 40px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        transform: translateY(6px);
+      }
+
+      .step b {
+        font-size: 32px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        display: block;
+      }
+
+      .step span {
+        display: block;
+        margin-top: 6px;
+        font-size: 21px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      #s4 .right {
+        display: grid;
+        align-content: center;
+        gap: 22px;
+      }
+
+      .viewer {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-xl);
+        aspect-ratio: 1080 / 500;
+      }
+
+      .viewer img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+      }
+
+      .viewer img.a {
+        animation: sw1 30s linear forwards;
+      }
+      .viewer img.b {
+        animation: sw2 30s linear forwards;
+      }
+      .viewer img.c {
+        animation: sw3 30s linear forwards;
+      }
+
+      @keyframes sw1 {
+        0%,
+        4% {
+          opacity: 0;
+        }
+        10%,
+        40% {
+          opacity: 1;
+        }
+        48%,
+        100% {
+          opacity: 0;
+        }
+      }
+      @keyframes sw2 {
+        0%,
+        44% {
+          opacity: 0;
+        }
+        52%,
+        70% {
+          opacity: 1;
+        }
+        78%,
+        100% {
+          opacity: 0;
+        }
+      }
+      @keyframes sw3 {
+        0%,
+        74% {
+          opacity: 0;
+        }
+        82%,
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .viewer .tag {
+        position: absolute;
+        left: 20px;
+        bottom: 18px;
+        z-index: 2;
+        background: rgba(15, 23, 42, 0.86);
+        color: #fff;
+        font-size: 19px;
+        font-weight: 600;
+        padding: 9px 18px;
+        border-radius: 999px;
+        backdrop-filter: blur(6px);
+        opacity: 0;
+      }
+
+      .viewer .tag.a {
+        animation: sw1 30s linear forwards;
+      }
+      .viewer .tag.b {
+        animation: sw2 30s linear forwards;
+      }
+      .viewer .tag.c {
+        animation: sw3 30s linear forwards;
+      }
+
+      /* ============================================================
+         Сцена 5 — цифры
+         ============================================================ */
+      #s5 {
+        display: grid;
+        align-content: center;
+        gap: 54px;
+      }
+
+      #s5 .head {
+        display: grid;
+        gap: 16px;
+      }
+
+      .table {
+        display: grid;
+        gap: 18px;
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 96px 1fr;
+        align-items: center;
+        gap: 28px;
+        padding: 26px 34px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+        opacity: 0;
+        animation: rise 800ms var(--ease) forwards;
+      }
+
+      .row .what b {
+        font-size: 32px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .row .what span {
+        display: block;
+        font-size: 19px;
+        color: var(--subtle);
+        margin-top: 4px;
+      }
+
+      .side {
+        text-align: center;
+      }
+
+      .side em {
+        display: block;
+        font-style: normal;
+        font-size: 16px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--subtle);
+        margin-bottom: 8px;
+      }
+
+      .side .v {
+        font-size: 42px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--subtle);
+      }
+
+      .side.new .v {
+        color: var(--accent);
+      }
+
+      .row .to {
+        display: grid;
+        place-items: center;
+        color: var(--subtle);
+      }
+
+      /* ============================================================
+         Сцена 6 — подписи
+         ============================================================ */
+      #s6 {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr;
+        gap: 80px;
+        align-content: center;
+        align-items: center;
+      }
+
+      #s6 .left {
+        display: grid;
+        gap: 26px;
+      }
+
+      #s6 .count {
+        font-size: 118px;
+        font-weight: 700;
+        letter-spacing: -0.05em;
+        line-height: 1;
+      }
+
+      #s6 .count small {
+        font-size: 44px;
+        color: var(--subtle);
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+
+      .labels {
+        position: relative;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow-xl);
+        background: #fff;
+      }
+
+      .labels img {
+        display: block;
+        width: 100%;
+      }
+
+      .labels .chip {
+        position: absolute;
+        transform: translate(-50%, -50%) scale(0.9);
+        background: rgba(255, 255, 255, 0.96);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 7px 16px;
+        font-size: 17px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        box-shadow: 0 6px 18px -8px rgba(15, 23, 42, 0.4);
+        opacity: 0;
+        animation: chipin 600ms var(--ease) forwards;
+      }
+
+      @keyframes chipin {
+        to {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
+
+      .note {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 22px;
+        color: var(--muted);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 12px 22px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--ok);
+        box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.16);
+      }
+
+      /* ============================================================
+         Сцена 7 — интерактивный план
+         ============================================================ */
+      #s7 {
+        padding: 0;
+        display: grid;
+        place-items: center;
+      }
+
+      #s7 .frame {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      #s7 .frame img {
+        width: 1520px;
+        opacity: 0;
+        transform: scale(1);
+        animation: kb 24s var(--ease) forwards;
+      }
+
+      /* План проявляется после того, как заголовок ушёл (≈14% от 24 с) */
+      @keyframes kb {
+        0% {
+          opacity: 0;
+          transform: scale(1);
+        }
+        14% {
+          opacity: 0;
+        }
+        26% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 1;
+          transform: scale(1.1);
+        }
+      }
+
+      #s7 .overlay {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(75% 60% at 50% 50%, transparent 55%, rgba(244, 246, 251, 0.75) 100%);
+      }
+
+      #s7 .head {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 1100px;
+        text-align: center;
+        display: grid;
+        gap: 16px;
+        justify-items: center;
+        opacity: 0;
+        transform: translate(-50%, -46%);
+        animation: headpass 24s var(--ease) forwards;
+      }
+
+      @keyframes headpass {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -46%);
+        }
+        7% {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+        }
+        13% {
+          opacity: 1;
+          transform: translate(-50%, -50%);
+        }
+        20% {
+          opacity: 0;
+          transform: translate(-50%, -58%);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -58%);
+        }
+      }
+
+      /* Поповер — воспроизводит карточку приложения */
+      .popover {
+        position: absolute;
+        left: 1090px;
+        top: 470px;
+        width: 430px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 30px 70px -24px rgba(15, 23, 42, 0.4);
+        padding: 22px 24px 18px;
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+        transform-origin: 20% 0%;
+        animation: pop2 700ms var(--ease) 12000ms forwards;
+      }
+
+      @keyframes pop2 {
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+
+      .popover header {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+
+      .popover .ic {
+        width: 56px;
+        height: 56px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        background: linear-gradient(150deg, #a78bfa, #8b5cf6 60%, #7c3aed);
+        box-shadow: 0 10px 22px -12px rgba(124, 58, 237, 0.8);
+      }
+
+      .popover h3 {
+        font-size: 25px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+
+      .popover .status {
+        margin-top: 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 17px;
+        color: var(--ok);
+        font-weight: 600;
+      }
+
+      .popover dl {
+        display: grid;
+        gap: 0;
+      }
+
+      .popover .r {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 13px 0;
+        border-top: 1px solid var(--border);
+        opacity: 0;
+        animation: fadein 500ms var(--ease) forwards;
+      }
+
+      .popover .r dt {
+        font-size: 19px;
+        color: var(--muted);
+      }
+
+      .popover .r dd {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      #s7 .legend {
+        position: absolute;
+        left: 120px;
+        bottom: 84px;
+        display: flex;
+        gap: 12px;
+        opacity: 0;
+        animation: rise 800ms var(--ease) 8000ms forwards;
+      }
+
+      .lg {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 11px 20px;
+        font-size: 19px;
+        font-weight: 500;
+        color: var(--text);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+
+      .lg i {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+      }
+
+      /* ============================================================
+         Сцена 8 — финал
+         ============================================================ */
+      #s8 {
+        display: grid;
+        place-content: center;
+        justify-items: center;
+        text-align: center;
+        gap: 30px;
+      }
+
+      #s8 .title {
+        font-size: 104px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1;
+      }
+
+      #s8 .tag {
+        font-size: 32px;
+        color: var(--muted);
+        max-width: 20em;
+        line-height: 1.4;
+      }
+
+      #s8 .tech {
+        margin-top: 18px;
+        font-size: 20px;
+        letter-spacing: 0.06em;
+        color: var(--subtle);
+      }
+
+      /* ── Прогресс и подсказка ────────────────────────────────────── */
+      #bar {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        height: 4px;
+        width: 0;
+        background: linear-gradient(90deg, #818cf8, var(--accent));
+        z-index: 20;
+      }
+
+      #hud {
+        position: fixed;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        color: #94a3b8;
+        font-size: 13px;
+        letter-spacing: 0.03em;
+        background: rgba(15, 23, 42, 0.6);
+        padding: 7px 16px;
+        border-radius: 999px;
+        z-index: 30;
+        transition: opacity 400ms;
+        pointer-events: none;
+      }
+
+      #hud.hide {
+        opacity: 0;
+      }
+
+      #curtain {
+        position: absolute;
+        inset: 0;
+        background: var(--bg);
+        display: grid;
+        place-items: center;
+        z-index: 40;
+        transition: opacity 600ms var(--ease);
+      }
+
+      #curtain.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      #curtain .cd {
+        font-size: 22px;
+        color: var(--subtle);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="fit">
+      <div id="stage">
+        <!-- ───────────────── Сцена 1 ───────────────── -->
+        <section class="scene" id="s1" data-dur="15">
+          <div class="words">
+            <div class="big in" style="animation-delay: 1.4s">План этажа<br />уже нарисован.</div>
+            <div class="sub in" style="animation-delay: 3.4s">
+              Скан из архива: паутина линий, подписи от руки, размеры на полях. По такому
+              чертежу нельзя работать — его просто терпят.
+            </div>
+          </div>
+          <figure><img src="shots/before.png" alt="" /></figure>
+        </section>
+
+        <!-- ───────────────── Сцена 2 ───────────────── -->
+        <section class="scene" id="s2" data-dur="13">
+          <div class="mark in">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+              <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+              <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+              <path d="M10 6h4M10 10h4M10 14h4M10 18h4" />
+            </svg>
+          </div>
+          <div class="title in" style="animation-delay: 0.35s">FloorPlan Studio</div>
+          <div class="rule"></div>
+          <div class="tag in" style="animation-delay: 0.75s">
+            Чертёж превращается в живой план этажа
+          </div>
+          <div class="stack">
+            <span class="pill in" style="animation-delay: 1.5s">0,1 секунды</span>
+            <span class="pill in" style="animation-delay: 1.7s">целиком в браузере</span>
+            <span class="pill in" style="animation-delay: 1.9s">без сервера и облака</span>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 3 ───────────────── -->
+        <section class="scene" id="s3" data-dur="24">
+          <div>
+            <div class="kicker in">Конвертер чертежей</div>
+            <h2 class="in" style="animation-delay: 0.15s; margin-top: 14px">Было → стало</h2>
+          </div>
+
+          <div class="pair">
+            <div class="panel before">
+              <div class="cap">Было — исходный чертёж</div>
+              <img class="shot" src="shots/before.png" alt="" />
+            </div>
+            <div class="panel after">
+              <div class="cap">Стало — красивый план</div>
+              <img class="shot" src="shots/after.png" alt="" />
+            </div>
+            <div class="arrow">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h13M13 6l6 6-6 6" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="stats">
+            <div class="stat"><b class="num">20</b><span>помещений</span></div>
+            <div class="stat"><b class="num">18</b><span>дверей</span></div>
+            <div class="stat"><b class="num">18</b><span>окон</span></div>
+            <div class="stat"><b class="num">4</b><span>прибора</span></div>
+            <div class="stat"><b class="num">1</b><span>марш лестницы</span></div>
+            <div class="stat"><b class="num">≈90 мс</b><span>на весь разбор</span></div>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 4 ───────────────── -->
+        <section class="scene" id="s4" data-dur="30">
+          <div class="left">
+            <div class="kicker in" style="margin-bottom: 8px">Векторный разбор</div>
+            <div class="step" style="animation-delay: 0.5s">
+              <i>1</i>
+              <div>
+                <b>Чернила → скелет</b>
+                <span>Линии чертежа утончаются до одного пикселя.</span>
+              </div>
+            </div>
+            <div class="step" style="animation-delay: 3.5s">
+              <i>2</i>
+              <div>
+                <b>Скелет → отрезки → стены</b>
+                <span>Отрезки складываются в пары граней: так узнаётся настоящая стена, а не
+                  случайная линия.</span>
+              </div>
+            </div>
+            <div class="step" style="animation-delay: 8.5s">
+              <i>3</i>
+              <div>
+                <b>Стены → планарный граф</b>
+                <span>Каждая замкнутая грань графа — помещение. Настоящий многоугольник,
+                  со всеми скосами.</span>
+              </div>
+            </div>
+            <div class="step" style="animation-delay: 15s">
+              <i>4</i>
+              <div>
+                <b>Разрывы → двери и окна</b>
+                <span>Комната с обеих сторон — дверь. С одной — окно.</span>
+              </div>
+            </div>
+            <div class="step" style="animation-delay: 20s">
+              <i>5</i>
+              <div>
+                <b>Ступени → марш</b>
+                <span>Ровная стопка штрихов одной ширины — лестница.</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="right">
+            <div class="viewer">
+              <img class="a" src="shots/walls.png" alt="" />
+              <img class="b" src="shots/rooms.png" alt="" />
+              <img class="c" src="shots/openings.png" alt="" />
+              <span class="tag a">Стены — 31</span>
+              <span class="tag b">Помещения — 20</span>
+              <span class="tag c">Проёмы — 16 окон / 18 дверей / 1 марш</span>
+            </div>
+            <div class="lede in" style="animation-delay: 1.2s; font-size: 23px; max-width: none">
+              Так программа видит чертёж: найденное показывается прямо поверх оригинала.
+            </div>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 5 ───────────────── -->
+        <section class="scene" id="s5" data-dur="22">
+          <div class="head">
+            <div class="kicker in">Проверка на живых чертежах</div>
+            <h2 class="in" style="animation-delay: 0.15s">Там, где прежний разбор сдавался</h2>
+          </div>
+
+          <div class="table">
+            <div class="row" style="animation-delay: 1.6s">
+              <div class="what">
+                <b>План коттеджа</b>
+                <span>нерегулярная планировка, короткие стены</span>
+              </div>
+              <div class="side"><em>было</em><div class="v num">8 / 2</div></div>
+              <div class="to">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+              </div>
+              <div class="side new"><em>стало</em><div class="v num">15 / 19</div></div>
+            </div>
+
+            <div class="row" style="animation-delay: 5.5s">
+              <div class="what">
+                <b>План БТИ</b>
+                <span>штриховка, размерные линии, рваные стены</span>
+              </div>
+              <div class="side"><em>было</em><div class="v num">10 / 16</div></div>
+              <div class="to">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6" /></svg>
+              </div>
+              <div class="side new"><em>стало</em><div class="v num">26 / 52</div></div>
+            </div>
+          </div>
+
+          <div class="in" style="animation-delay: 11s; justify-self: start">
+            <span class="note"><span class="dot"></span> помещений / дверей · и наружное крыльцо,
+              которого прежний разбор не видел в принципе</span>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 6 ───────────────── -->
+        <section class="scene" id="s6" data-dur="20">
+          <div class="left">
+            <div class="kicker in">Чтение подписей</div>
+            <h2 class="in" style="animation-delay: 0.15s; font-size: 62px">
+              Геометрию машина читает до пикселя.<br />Буквы — отдельно.
+            </h2>
+            <div class="count in num" style="animation-delay: 2.4s">
+              12<small> / 12</small>
+            </div>
+            <div class="lede in" style="animation-delay: 2.8s">
+              Названия помещений подставляет зрительная модель, запущенная на этом же
+              компьютере.
+            </div>
+            <div class="in" style="animation-delay: 9s">
+              <span class="note"><span class="dot"></span> ни один чертёж не покидает вашу
+                машину</span>
+            </div>
+          </div>
+
+          <div class="labels in" style="animation-delay: 0.4s">
+            <img src="shots/after.png" alt="" />
+            <span class="chip" style="left: 24%; top: 27%; animation-delay: 4.0s">Конференц зал</span>
+            <span class="chip" style="left: 40%; top: 27%; animation-delay: 4.5s">офис 5</span>
+            <span class="chip" style="left: 59%; top: 27%; animation-delay: 5.0s">офис 7</span>
+            <span class="chip" style="left: 80%; top: 27%; animation-delay: 5.5s">офис 9</span>
+            <span class="chip" style="left: 80%; top: 55%; animation-delay: 6.0s">Бойлерная</span>
+            <span class="chip" style="left: 13%; top: 70%; animation-delay: 6.5s">офис 3</span>
+            <span class="chip" style="left: 24%; top: 70%; animation-delay: 7.0s">офис 2</span>
+            <span class="chip" style="left: 52%; top: 70%; animation-delay: 7.5s">Центр офисных услуг</span>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 7 ───────────────── -->
+        <section class="scene" id="s7" data-dur="24">
+          <div class="frame"><img src="shots/building.png" alt="" /></div>
+          <div class="overlay"></div>
+
+          <div class="head">
+            <div class="kicker">Интерактивный план</div>
+            <h2 style="font-size: 68px">Вектор остаётся чётким<br />на любом масштабе</h2>
+          </div>
+
+          <div class="popover">
+            <header>
+              <span class="ic">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z" />
+                  <circle cx="12" cy="13" r="3.2" />
+                </svg>
+              </span>
+              <div>
+                <h3>Видеокамера 3</h3>
+                <div class="status"><span class="dot"></span> В сети</div>
+              </div>
+            </header>
+            <dl>
+              <div class="r" style="animation-delay: 10.1s"><dt>Угол обзора</dt><dd class="num">60°</dd></div>
+              <div class="r" style="animation-delay: 10.3s"><dt>IP-адрес</dt><dd class="num">10.0.0.16</dd></div>
+              <div class="r" style="animation-delay: 10.5s"><dt>Запись</dt><dd>Идёт запись</dd></div>
+              <div class="r" style="animation-delay: 10.7s"><dt>Модель</dt><dd>AX-M200</dd></div>
+            </dl>
+          </div>
+
+          <div class="legend">
+            <span class="lg"><i style="background: var(--elevator)"></i> Лифты</span>
+            <span class="lg"><i style="background: var(--camera)"></i> Камеры</span>
+            <span class="lg"><i style="background: var(--atm)"></i> Банкоматы</span>
+            <span class="lg"><i style="background: var(--stairs)"></i> Лестницы</span>
+          </div>
+        </section>
+
+        <!-- ───────────────── Сцена 8 ───────────────── -->
+        <section class="scene" id="s8" data-dur="12">
+          <div class="mark in">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+              <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+              <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+              <path d="M10 6h4M10 10h4M10 14h4M10 18h4" />
+            </svg>
+          </div>
+          <div class="title in" style="animation-delay: 0.3s">FloorPlan Studio</div>
+          <div class="tag in" style="animation-delay: 1.4s">
+            Чертёж, который лежал в архиве, становится инструментом.
+          </div>
+          <div class="tech in" style="animation-delay: 3s">
+            REACT 19 · VITE 8 · MOBX 6 · SVG
+          </div>
+        </section>
+
+        <div id="bar"></div>
+
+        <div id="curtain"><div class="cd">Пробел — старт</div></div>
+      </div>
+    </div>
+
+    <div id="hud">Пробел — пауза · ← → сцена · R — сначала · F — во весь экран · H — скрыть</div>
+
+    <script>
+      // ── Вписать сцену 1920×1080 в окно ──────────────────────────
+      const stage = document.getElementById('stage')
+      const fit = () => {
+        const k = Math.min(innerWidth / 1920, innerHeight / 1080)
+        stage.style.transform = `translate(-50%, -50%) scale(${k})`
+      }
+      addEventListener('resize', fit)
+      fit()
+
+      // ── Движок таймлайна ────────────────────────────────────────
+      const scenes = [...document.querySelectorAll('.scene')]
+      const durs = scenes.map((s) => +s.dataset.dur * 1000)
+      const total = durs.reduce((a, b) => a + b, 0)
+      const starts = durs.reduce((acc, d, i) => (acc.push(i ? acc[i - 1] + durs[i - 1] : 0), acc), [])
+      const bar = document.getElementById('bar')
+      const curtain = document.getElementById('curtain')
+      const hud = document.getElementById('hud')
+
+      let t = 0
+      let playing = false
+      let cur = -1
+      let last = 0
+
+      const show = (i) => {
+        if (i === cur) return
+        cur = i
+        scenes.forEach((s, n) => {
+          if (n === i) {
+            // перезапуск CSS-анимаций сцены
+            s.style.display = 'none'
+            void s.offsetWidth
+            s.style.display = ''
+            s.classList.add('is-active')
+          } else {
+            s.classList.remove('is-active')
+          }
+        })
+      }
+
+      const seek = (ms) => {
+        t = Math.max(0, Math.min(total - 1, ms))
+        let i = starts.findIndex((s, n) => t >= s && t < s + durs[n])
+        if (i < 0) i = scenes.length - 1
+        show(i)
+        bar.style.width = (t / total) * 100 + '%'
+      }
+
+      const tick = (now) => {
+        if (playing) {
+          const dt = Math.min(now - last, 120)
+          t += dt
+          if (t >= total) {
+            t = total
+            playing = false
+            document.documentElement.style.setProperty('--ps', 'paused')
+          } else {
+            const i = starts.findIndex((s, n) => t >= s && t < s + durs[n])
+            if (i >= 0) show(i)
+          }
+          bar.style.width = (t / total) * 100 + '%'
+        }
+        last = now
+        requestAnimationFrame(tick)
+      }
+      requestAnimationFrame((n) => ((last = n), tick(n)))
+
+      const setPlay = (v) => {
+        playing = v
+        document.documentElement.style.setProperty('--ps', v ? 'running' : 'paused')
+        if (v) curtain.classList.add('gone')
+      }
+
+      // старт: показать первую сцену на паузе
+      show(0)
+      document.documentElement.style.setProperty('--ps', 'paused')
+
+      let hudTimer = setTimeout(() => hud.classList.add('hide'), 4000)
+      addEventListener('mousemove', () => {
+        hud.classList.remove('hide')
+        clearTimeout(hudTimer)
+        hudTimer = setTimeout(() => hud.classList.add('hide'), 2500)
+      })
+
+      addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+          e.preventDefault()
+          setPlay(!playing)
+        } else if (e.code === 'ArrowRight') {
+          e.preventDefault()
+          seek(starts[Math.min(cur + 1, scenes.length - 1)])
+        } else if (e.code === 'ArrowLeft') {
+          e.preventDefault()
+          seek(starts[Math.max(cur - 1, 0)])
+        } else if (e.key.toLowerCase() === 'r' || e.key.toLowerCase() === 'к') {
+          curtain.classList.remove('gone')
+          setPlay(false)
+          cur = -1
+          seek(0)
+        } else if (e.key.toLowerCase() === 'f' || e.key.toLowerCase() === 'а') {
+          document.fullscreenElement ? document.exitFullscreen() : document.body.requestFullscreen()
+        } else if (e.key.toLowerCase() === 'h' || e.key.toLowerCase() === 'р') {
+          hud.classList.toggle('hide')
+        }
+      })
+
+      addEventListener('click', () => setPlay(!playing))
+    </script>
+  </body>
+</html>

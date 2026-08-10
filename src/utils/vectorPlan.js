@@ -594,7 +594,10 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     let best = -1
     let bestD = Infinity
     for (let i = 0; i < rooms.length; i++) {
-      if (!inside(v.rooms[i].polygon, item.x + item.w / 2, item.y + item.h / 2)) continue
+      // item.x/item.y — УЖЕ центр прибора (`classifyBlob` отдаёт середину).
+      // Прибавка половины размера сдвигала точку, и ближайшей стеной выходила
+      // не та: бачки унитазов смотрели вправо вместо верхней стены.
+      if (!inside(v.rooms[i].polygon, item.x, item.y)) continue
       const b = rooms[i].rect
       const d = Math.hypot(b.x + b.w / 2 - tx(item.x), b.y + b.h / 2 - ty(item.y))
       if (d < bestD) {
@@ -606,20 +609,37 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     out[best].type = 'service'
     const src = v.rooms[best].polygon
     const sb = bboxOf(src)
-    const cx = item.x + item.w / 2
-    const cy = item.y + item.h / 2
+    const cx = item.x
+    const cy = item.y
     const dl = cx - sb.x
     const dr = sb.x + sb.w - cx
     const dt = cy - sb.y
     const db = sb.y + sb.h - cy
     const m = Math.min(dl, dr, dt, db)
     const tankDir = m === dl ? 'left' : m === dr ? 'right' : m === dt ? 'up' : 'down'
+    // Придвигаем прибор ВПЛОТНУЮ к своей стене: на чертеже он к ней и стоит,
+    // а по центру пятна чернил получается зазор в несколько единиц.
+    const fw = Math.max(10, tw(item.w))
+    const fh = Math.max(10, tw(item.h))
+    const box = out[best].rect ?? bboxOf(out[best].polygon)
+    // сколько прибор занимает от своего центра в сторону стены
+    const along = tankDir === 'up' || tankDir === 'down' ? fh / 2 : fw / 2
+    // у унитаза за чашей ещё бачок
+    const tank =
+      item.type === 'toilet' ? Math.max(6, Math.round(Math.max(fw, fh) * 0.55)) : 0
+    const reachOut = along + tank
+    let fx = tx(item.x)
+    let fy = ty(item.y)
+    if (tankDir === 'up') fy = box.y + reachOut
+    else if (tankDir === 'down') fy = box.y + box.h - reachOut
+    else if (tankDir === 'left') fx = box.x + reachOut
+    else fx = box.x + box.w - reachOut
     out[best].features.push({
       type: item.type,
-      x: tx(item.x),
-      y: ty(item.y),
-      w: Math.max(10, tw(item.w)),
-      h: Math.max(10, tw(item.h)),
+      x: Math.round(fx),
+      y: Math.round(fy),
+      w: fw,
+      h: fh,
       // Унитазу нужен `tankDir` — куда бачок, то есть К стене. Раковине нужен
       // `dir` — куда выпуклость, то есть ОТ стены, плоской стороной к стене.
       // Раньше сюда шло `wallDir`, которого отрисовка не знает: все раковины
