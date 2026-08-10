@@ -83,7 +83,56 @@ export function extractPlanVector(imageData) {
   const wallsForOpenings = vec.walls.filter((wall) => !inShaft(wall, 2))
   const wallsForRooms = vec.walls.filter((wall) => !inShaft(wall, 1.3))
 
-  const built = buildRooms(wallsForRooms, vec.w, vec.h)
+  // Стены лестничного проёма тянем до конца. На демо они начинаются с y164,
+  // а верхняя стена коридора на y144: общего дотягивания концов (18 единиц)
+  // не хватает двух пикселей, стены не смыкаются с коридором — и проём
+  // остаётся без боковых стен на всём протяжении коридора. Поднимать общее
+  // дотягивание нельзя: на БТИ стены начинают цепляться где попало и комнат
+  // выходит 36 вместо 27. Поэтому удлиняем ТОЛЬКО те стены, что образуют
+  // проём: они по смыслу идут во всю его высоту.
+  const toStretch = new Set()
+  for (const s of shafts) {
+    const runVertical = s.treadAxis === 'x'
+    // стены, идущие ВДОЛЬ хода марша и стоящие в его полосе
+    const cand = wallsForRooms.filter((wall) => {
+      const dx = wall.x2 - wall.x1
+      const dy = wall.y2 - wall.y1
+      if (Math.hypot(dx, dy) < s.tread) return false
+      if (runVertical ? Math.abs(dx) > Math.abs(dy) : Math.abs(dy) > Math.abs(dx)) return false
+      const cx = (wall.x1 + wall.x2) / 2
+      const cy = (wall.y1 + wall.y2) / 2
+      const side = runVertical ? cx : cy
+      const mid = runVertical ? cy : cx
+      const lo = (runVertical ? s.x0 : s.y0) - s.tread
+      const hi = (runVertical ? s.x1 : s.y1) + s.tread
+      const a = (runVertical ? s.y0 : s.x0) - s.tread
+      const b = (runVertical ? s.y1 : s.x1) + s.tread
+      return side >= lo && side <= hi && mid > a && mid < b
+    })
+    if (cand.length < 2) continue
+    // Удлиняем только КРАЙНИЕ из них. Между ними идёт тетива марша — если
+    // потянуть и её, шахта разрежется пополам, а с ней и кладовая внизу.
+    const pos = (wall) => (runVertical ? (wall.x1 + wall.x2) / 2 : (wall.y1 + wall.y2) / 2)
+    const sorted = cand.slice().sort((a, b) => pos(a) - pos(b))
+    toStretch.add(sorted[0])
+    toStretch.add(sorted[sorted.length - 1])
+  }
+  const stretched = wallsForRooms.map((wall) => {
+    if (!toStretch.has(wall)) return wall
+    const dx = wall.x2 - wall.x1
+    const dy = wall.y2 - wall.y1
+    const len = Math.hypot(dx, dy) || 1
+    const tread = shafts.length ? shafts[0].tread : 20
+    const g = (tread * 1.5) / len
+    return {
+      ...wall,
+      x1: wall.x1 - dx * g,
+      y1: wall.y1 - dy * g,
+      x2: wall.x2 + dx * g,
+      y2: wall.y2 + dy * g,
+    }
+  })
+  const built = buildRooms(stretched, vec.w, vec.h)
   const outline = built.outline
   const rooms = built.rooms.filter((r) => {
     const b = bboxOf(r.polygon)
