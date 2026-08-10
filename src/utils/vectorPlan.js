@@ -558,6 +558,41 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
   }
 
+  // Внутренние стены. Векторный движок их не отдавал вовсе: рисовалась тонкая
+  // обводка полигона, и на фоне толстых наружных стен внутренние читались как
+  // их отсутствие — особенно у лестницы. Общую грань двух комнат отдаём как
+  // `partition`, отрисовка кладёт её толстой линией поверх заливок.
+  {
+    const near = (a, b) => Math.abs(a - b) <= 3
+    const edges = out.map((r) =>
+      r.polygon.map((p, k) => [p, r.polygon[(k + 1) % r.polygon.length]]),
+    )
+    for (let i = 0; i < out.length; i++) {
+      for (const [a, b] of edges[i]) {
+        const horizontal = near(a[1], b[1])
+        const vertical = near(a[0], b[0])
+        if (!horizontal && !vertical) continue
+        // Грань внутренняя, если такая же есть у другой комнаты: наружные
+        // стены рисует свой слой, дублировать их не нужно.
+        const shared = edges.some((list, j) => {
+          if (j === i) return false
+          return list.some(([c, d]) => {
+            if (horizontal ? !near(c[1], a[1]) || !near(d[1], a[1]) : !near(c[0], a[0]) || !near(d[0], a[0]))
+              return false
+            const [p0, p1] = horizontal ? [a[0], b[0]] : [a[1], b[1]]
+            const [q0, q1] = horizontal ? [c[0], d[0]] : [c[1], d[1]]
+            const lo = Math.max(Math.min(p0, p1), Math.min(q0, q1))
+            const hi = Math.min(Math.max(p0, p1), Math.max(q0, q1))
+            return hi - lo > 8
+          })
+        })
+        if (!shared) continue
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 8) continue
+        out[i].features.push({ type: 'partition', points: [a, b], strokeWidth: 7 })
+      }
+    }
+  }
+
   // Лестницы. Марш внутри помещения — его деталь; марш снаружи (наружное
   // крыльцо) старому движку был недоступен в принципе, здесь он становится
   // объектом этажа и виден на плане.
