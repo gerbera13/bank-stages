@@ -738,9 +738,40 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     }
   }
 
+  // Палец в контуре: выступ, у которого выход и возврат идут почти вплотную.
+  // На коттедже контур выходил с отростком 114×10 — на плане это читалось как
+  // стена, торчащая из здания наружу. Форму здания это не описывает, а шум
+  // обхода — да.
+  const dropFingers = (poly, tol = 14) => {
+    const res = poly.map(([x, y]) => [x, y])
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = res.length - 1; i >= 0 && res.length > 4; i--) {
+        const a = res[i]
+        const b = res[(i + 1) % res.length]
+        const c = res[(i + 2) % res.length]
+        const d = res[(i + 3) % res.length]
+        // выход и возврат почти в одну точку, а сам выступ заметно длиннее
+        if (Math.hypot(d[0] - a[0], d[1] - a[1]) > tol) continue
+        if (Math.hypot(b[0] - a[0], b[1] - a[1]) < tol * 1.5) continue
+        if (Math.hypot(c[0] - b[0], c[1] - b[1]) > tol) continue
+        if (i + 3 <= res.length) res.splice(i + 1, 2)
+      }
+    }
+    // После вырезания пальца остаются точки на одной прямой — убираем.
+    const clean = []
+    for (let i = 0; i < res.length; i++) {
+      const p0 = res[(i + res.length - 1) % res.length]
+      const p1 = res[i]
+      const p2 = res[(i + 1) % res.length]
+      const cross = (p1[0] - p0[0]) * (p2[1] - p0[1]) - (p1[1] - p0[1]) * (p2[0] - p0[0])
+      const base = Math.hypot(p2[0] - p0[0], p2[1] - p0[1]) || 1
+      if (Math.abs(cross) / base > 0.6) clean.push(p1)
+    }
+    return clean.length >= 3 ? clean : res
+  }
   const outline =
     v.outline && v.outline.length >= 3
-      ? v.outline.map(([x, y]) => [tx(x), ty(y)])
+      ? dropFingers(v.outline.map(([x, y]) => [tx(x), ty(y)]))
       : undefined
 
   return {
