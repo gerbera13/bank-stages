@@ -50,6 +50,8 @@ export function extractPlanVector(imageData) {
       y0: horizontal ? y0 : y0 - grow,
       y1: horizontal ? y1 : y1 + grow,
       tread: Math.max(tread, 1),
+      // вдоль ступеней зона не растягивалась — запомним, по какой это оси
+      treadAxis: treadHorizontal ? 'x' : 'y',
     }
   })
   const rooms = built.rooms.filter((r) => {
@@ -70,7 +72,25 @@ export function extractPlanVector(imageData) {
     const cy = (wall.y1 + wall.y2) / 2
     const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
     return !shafts.some(
-      (s) => cx >= s.x0 && cx <= s.x1 && cy >= s.y0 && cy <= s.y1 && len <= s.tread * 1.5
+      // Зону берём с полем, а длину с запасом. ТОРЦЕВАЯ стена шахты чуть
+      // длиннее ступени (41 против 26 на демо), а её середина попадала на
+      // пиксель мимо зоны — и на ней появлялось окно в конце лестницы,
+      // которого на чертеже нет. Боковые стены шахты намного длиннее и под
+      // правило по длине не подпадают.
+      (s) => {
+        // Поле добавляем ТОЛЬКО вдоль ступеней: по ходу марша зона и так
+        // растянута. Поле во все стороны съедало настоящие стены — на
+        // коттедже пропадали четыре двери.
+        const mx = s.treadAxis === 'x' ? s.tread * 0.5 : 0
+        const my = s.treadAxis === 'y' ? s.tread * 0.5 : 0
+        return (
+          cx >= s.x0 - mx &&
+          cx <= s.x1 + mx &&
+          cy >= s.y0 - my &&
+          cy <= s.y1 + my &&
+          len <= s.tread * 2
+        )
+      }
     )
   })
   const { doors, windows } = findOpenings(
@@ -409,7 +429,12 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
       y: ty(item.y),
       w: Math.max(10, tw(item.w)),
       h: Math.max(10, tw(item.h)),
-      ...(item.type === 'toilet' ? { tankDir } : { wallDir: tankDir }),
+      // Унитазу нужен `tankDir` — куда бачок, то есть К стене. Раковине нужен
+      // `dir` — куда выпуклость, то есть ОТ стены, плоской стороной к стене.
+      // Раньше сюда шло `wallDir`, которого отрисовка не знает: все раковины
+      // рисовались влево по умолчанию, спинами куда попало.
+      tankDir,
+      dir: { left: 'right', right: 'left', up: 'down', down: 'up' }[tankDir] ?? 'right',
     })
   }
 
