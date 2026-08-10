@@ -219,9 +219,25 @@ function assignTypes(rooms, plan) {
     const r = rooms[k]
     const thin = Math.min(r.rect.w, r.rect.h)
     const long = Math.max(r.rect.w, r.rect.h)
-    if (long / thin >= 2.5 && neighbours[k] >= 4 && thin <= plan.h * 0.22)
+    // Толщину ленты меряем по площади и периметру (2·S/P), а не по короткой
+    // стороне габарита. У Г-образного коридора габарит включает отросток
+    // лестницы, короткая сторона выходит 183 вместо 58, и коридор переставал
+    // считаться коридором.
+    let perim = 0
+    for (let q = 0; q < r.polygon.length; q++) {
+      const [ax, ay] = r.polygon[q]
+      const [bx, by] = r.polygon[(q + 1) % r.polygon.length]
+      perim += Math.hypot(bx - ax, by - ay)
+    }
+    const band = perim > 0 ? (2 * r.area) / perim : thin
+    if (long / band >= 3 && neighbours[k] >= 6 && band <= plan.h * 0.22)
       types[k] = 'corridor'
-    else if (r.area <= plan.w * plan.h * 0.012) types[k] = 'service'
+    // Служебным помещение делает САНТЕХНИКА, а не размер: её находит
+    // `collectDetails` и сама выставляет тип. По размеру на плане БТИ
+    // служебными становились пятнадцать комнат из двадцати пяти — план
+    // выглядел сплошным санузлом. Порог оставляем только для совсем
+    // крошечных каморок: кладовых и шкафов.
+    else if (r.area <= plan.w * plan.h * 0.004) types[k] = 'service'
   }
   let meetings = 0
   for (const { i } of order) {
