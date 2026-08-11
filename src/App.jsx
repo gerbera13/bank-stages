@@ -15,9 +15,10 @@ import styles from './App.module.css'
 const App = observer(function App() {
   const { blueprint } = useStore()
   const building = blueprint.building
-  // ?demo=1 — открыть сразу конвертер с загруженным демо-чертежом (для проверки)
+  // ?demo=1 — открыть сразу конвертер с загруженным демо-чертежом (для проверки).
+  // ?demo=11 и ?demo=12 — коттедж и план БТИ.
   const [mode, setMode] = useState(() =>
-    window.location.search.includes('demo=1') ? 'converter' : 'plan',
+    new URLSearchParams(window.location.search).has('demo') ? 'converter' : 'plan',
   )
 
   return (

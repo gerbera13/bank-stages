@@ -300,14 +300,19 @@ export default function Converter() {
     }
   }, [extracted, engine, floorNew])
 
-  // Автозагрузка примера при ?demo=1 (для проверки)
+  // Автозагрузка примера при ?demo=… (для проверки): 1 — офисный этаж,
+  // 11 — коттедж, 12 — план БТИ. Три чертежа устроены по-разному, и правка,
+  // которая чинит один, часто ломает другой, — держим их под рукой.
   useEffect(() => {
-    if (originalUrl || !window.location.search.includes('demo=1')) return
+    const which = new URLSearchParams(window.location.search).get('demo')
+    if (originalUrl || !which) return
+    const name = which === '1' ? 'demo-plan.png' : `demo-${which}.png`
     ;(async () => {
       try {
-        const res = await fetch('/demo-plan.png')
+        const res = await fetch(`/${name}`)
+        if (!res.ok) return
         const blob = await res.blob()
-        handleImage(new File([blob], 'demo-plan.png', { type: 'image/png' }))
+        handleImage(new File([blob], name, { type: 'image/png' }))
       } catch {
         /* ignore */
       }

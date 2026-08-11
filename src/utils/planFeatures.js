@@ -116,7 +116,22 @@ export function findOpenings(walls, ink, w, h, rooms) {
   const step = Math.max(4, Math.round(minSide * 0.03))
 
   for (const wall of walls) {
-    for (const gap of gapsAlong(wall, ink, w, h, minGap, maxGap)) {
+    const wallLen = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+    const gaps = gapsAlong(wall, ink, w, h, minGap, maxGap)
+    // Стена, изрешечённая больше чем наполовину, — не стена с проёмами, а
+    // стена, у которой движок не видит одну из граней. На коттедже половина
+    // граней нарисована светло-серым: в жёсткую маску они не попадают, и
+    // правило «чернила по обе стороны осевой» объявляет проёмом весь тот
+    // кусок, где грань серая. Так на двух стенах у лестницы набиралось
+    // одиннадцать ложных дверей и окон — сплошной пунктир вместо стены.
+    // Порог высокий нарочно: у настоящей стены проёмы столько места не
+    // занимают, а ложные забирают почти всю длину (0.89 и 1.00 на этих двух).
+    // Ниже 0.7 начинает задевать живое: на демо пропадает дверь, на БТИ окна.
+    // На КОРОТКОЙ стене доля ничего не значит — одна дверь и есть вся стена.
+    // Скос эркера коттеджа длиной 22 единицы так терял свою единственную дверь.
+    const longEnough = wallLen >= minSide * 0.15
+    if (longEnough && gaps.reduce((a, g) => a + g.width, 0) > wallLen * 0.7) continue
+    for (const gap of gaps) {
       const sideA = rooms.some((r) =>
         inside(r.polygon, gap.x + gap.nx * step, gap.y + gap.ny * step),
       )

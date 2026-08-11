@@ -22,138 +22,168 @@ export function extractPlanVector(imageData) {
     typeof performance !== 'undefined' && performance.now ? performance.now() : null
   const vec = vectorizeWalls(imageData)
   const flights = findStairFlights(vec.ink, vec.w, vec.h)
-  // Зона марша: по ней отличаем ступени и щели между ними от настоящих стен
-  // и комнат. Считаем её ДО разбора на комнаты — ступени надо убрать и оттуда.
-  const shafts = flights.map((f) => {
-    const xs = f.treads.flatMap((t) => [t.x1, t.x2])
-    const ys = f.treads.flatMap((t) => [t.y1, t.y2])
-    const x0 = Math.min(...xs)
-    const y0 = Math.min(...ys)
-    const x1 = Math.max(...xs)
-    const y1 = Math.max(...ys)
-    // Ход марша — ПОПЕРЁК ступеней. По пропорциям габарита его не определить:
-    // ступени длинные, и коробка марша шире, чем он сам длинный. Вдоль хода
-    // зону тянем: марш находится не всегда целиком, и щели остальных ступеней
-    // иначе снова становятся «комнатами».
-    const t0 = f.treads[0]
-    const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
-    const horizontal = !treadHorizontal
-    const grow = (horizontal ? x1 - x0 : y1 - y0) * 0.8
-    const tread = horizontal ? y1 - y0 : x1 - x0
-    return {
-      x0: horizontal ? x0 - grow : x0,
-      x1: horizontal ? x1 + grow : x1,
-      y0: horizontal ? y0 : y0 - grow,
-      y1: horizontal ? y1 : y1 + grow,
-      tread: Math.max(tread, 1),
-      treadAxis: treadHorizontal ? 'x' : 'y',
-    }
-  })
-
-  // Ступень — короткая линия внутри зоны марша. Из стен её надо убрать дважды:
-  // из поиска проёмов (иначе разрывы на ступенях становятся окнами) и из
-  // разбора на комнаты (иначе ступени режут шахту на ломтики — отделялась
-  // четверть марша, и обломок читался голубым пятном в начале лестницы).
-  // Поле добавляем ТОЛЬКО вдоль ступеней: по ходу марша зона и так растянута,
-  // а поле во все стороны съедало настоящие стены — на коттедже пропадали
-  // четыре двери. Запас по длине нужен торцевой стене шахты: она чуть длиннее
-  // ступени (41 против 26 на демо).
-  const inShaft = (wall, factor) => {
-    const cx = (wall.x1 + wall.x2) / 2
-    const cy = (wall.y1 + wall.y2) / 2
-    const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
-    return shafts.some((s) => {
-      const mx = s.treadAxis === 'x' ? s.tread * 0.5 : 0
-      const my = s.treadAxis === 'y' ? s.tread * 0.5 : 0
-      return (
-        cx >= s.x0 - mx &&
-        cx <= s.x1 + mx &&
-        cy >= s.y0 - my &&
-        cy <= s.y1 + my &&
-        len <= s.tread * factor
-      )
+  const layout = (usedFlights) => {
+    // Зона марша: по ней отличаем ступени и щели между ними от настоящих стен
+    // и комнат. Считаем её ДО разбора на комнаты — ступени надо убрать и оттуда.
+    const shafts = usedFlights.map((f) => {
+      const xs = f.treads.flatMap((t) => [t.x1, t.x2])
+      const ys = f.treads.flatMap((t) => [t.y1, t.y2])
+      const x0 = Math.min(...xs)
+      const y0 = Math.min(...ys)
+      const x1 = Math.max(...xs)
+      const y1 = Math.max(...ys)
+      // Ход марша — ПОПЕРЁК ступеней. По пропорциям габарита его не определить:
+      // ступени длинные, и коробка марша шире, чем он сам длинный. Вдоль хода
+      // зону тянем: марш находится не всегда целиком, и щели остальных ступеней
+      // иначе снова становятся «комнатами».
+      const t0 = f.treads[0]
+      const treadHorizontal = Math.abs(t0.x2 - t0.x1) >= Math.abs(t0.y2 - t0.y1)
+      const horizontal = !treadHorizontal
+      const grow = (horizontal ? x1 - x0 : y1 - y0) * 0.8
+      const tread = horizontal ? y1 - y0 : x1 - x0
+      return {
+        x0: horizontal ? x0 - grow : x0,
+        x1: horizontal ? x1 + grow : x1,
+        y0: horizontal ? y0 : y0 - grow,
+        y1: horizontal ? y1 : y1 + grow,
+        tread: Math.max(tread, 1),
+        treadAxis: treadHorizontal ? 'x' : 'y',
+      }
     })
-  }
-  // Два РАЗНЫХ порога, и это важно.
-  // Для проёмов — широкий (2×): под него попадает и торцевая стена шахты,
-  // на которой иначе появляется окно в конце лестницы, которого нет на чертеже.
-  // Для разбора на комнаты — узкий (1.3×): торцевую стену надо СОХРАНИТЬ, она
-  // отделяет кладовую под лестницей. Ступень на демо 26 единиц, торцевая
-  // стена 41 — порог 34 разводит их надёжно.
-  const wallsForOpenings = vec.walls.filter((wall) => !inShaft(wall, 2))
-  const wallsForRooms = vec.walls.filter((wall) => !inShaft(wall, 1.3))
 
-  // Стены лестничного проёма тянем до конца. На демо они начинаются с y164,
-  // а верхняя стена коридора на y144: общего дотягивания концов (18 единиц)
-  // не хватает двух пикселей, стены не смыкаются с коридором — и проём
-  // остаётся без боковых стен на всём протяжении коридора. Поднимать общее
-  // дотягивание нельзя: на БТИ стены начинают цепляться где попало и комнат
-  // выходит 36 вместо 27. Поэтому удлиняем ТОЛЬКО те стены, что образуют
-  // проём: они по смыслу идут во всю его высоту.
-  const toStretch = new Set()
-  for (const s of shafts) {
-    const runVertical = s.treadAxis === 'x'
-    // стены, идущие ВДОЛЬ хода марша и стоящие в его полосе
-    const cand = wallsForRooms.filter((wall) => {
-      const dx = wall.x2 - wall.x1
-      const dy = wall.y2 - wall.y1
-      if (Math.hypot(dx, dy) < s.tread) return false
-      if (runVertical ? Math.abs(dx) > Math.abs(dy) : Math.abs(dy) > Math.abs(dx)) return false
+    // Ступень — короткая линия внутри зоны марша. Из стен её надо убрать дважды:
+    // из поиска проёмов (иначе разрывы на ступенях становятся окнами) и из
+    // разбора на комнаты (иначе ступени режут шахту на ломтики — отделялась
+    // четверть марша, и обломок читался голубым пятном в начале лестницы).
+    // Поле добавляем ТОЛЬКО вдоль ступеней: по ходу марша зона и так растянута,
+    // а поле во все стороны съедало настоящие стены — на коттедже пропадали
+    // четыре двери. Запас по длине нужен торцевой стене шахты: она чуть длиннее
+    // ступени (41 против 26 на демо).
+    const inShaft = (wall, factor) => {
       const cx = (wall.x1 + wall.x2) / 2
       const cy = (wall.y1 + wall.y2) / 2
-      const side = runVertical ? cx : cy
-      const mid = runVertical ? cy : cx
-      const lo = (runVertical ? s.x0 : s.y0) - s.tread
-      const hi = (runVertical ? s.x1 : s.y1) + s.tread
-      const a = (runVertical ? s.y0 : s.x0) - s.tread
-      const b = (runVertical ? s.y1 : s.x1) + s.tread
-      return side >= lo && side <= hi && mid > a && mid < b
-    })
-    if (cand.length < 2) continue
-    // Удлиняем только КРАЙНИЕ из них. Между ними идёт тетива марша — если
-    // потянуть и её, шахта разрежется пополам, а с ней и кладовая внизу.
-    const pos = (wall) => (runVertical ? (wall.x1 + wall.x2) / 2 : (wall.y1 + wall.y2) / 2)
-    const sorted = cand.slice().sort((a, b) => pos(a) - pos(b))
-    toStretch.add(sorted[0])
-    toStretch.add(sorted[sorted.length - 1])
-  }
-  const stretched = wallsForRooms.map((wall) => {
-    if (!toStretch.has(wall)) return wall
-    const dx = wall.x2 - wall.x1
-    const dy = wall.y2 - wall.y1
-    const len = Math.hypot(dx, dy) || 1
-    const tread = shafts.length ? shafts[0].tread : 20
-    const g = (tread * 1.5) / len
-    return {
-      ...wall,
-      x1: wall.x1 - dx * g,
-      y1: wall.y1 - dy * g,
-      x2: wall.x2 + dx * g,
-      y2: wall.y2 + dy * g,
+      const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+      return shafts.some((s) => {
+        const mx = s.treadAxis === 'x' ? s.tread * 0.5 : 0
+        const my = s.treadAxis === 'y' ? s.tread * 0.5 : 0
+        return (
+          cx >= s.x0 - mx &&
+          cx <= s.x1 + mx &&
+          cy >= s.y0 - my &&
+          cy <= s.y1 + my &&
+          len <= s.tread * factor
+        )
+      })
     }
-  })
-  const built = buildRooms(stretched, vec.w, vec.h)
-  const outline = built.outline
-  const rooms = built.rooms.filter((r) => {
-    const b = bboxOf(r.polygon)
-    const cx = b.x + b.w / 2
-    const cy = b.y + b.h / 2
-    return !shafts.some((s) => {
-      if (cx < s.x0 || cx > s.x1 || cy < s.y0 || cy > s.y1) return false
-      // Щель между ступенями тонкая ВДОЛЬ ХОДА марша. Сама шахта по этой оси
-      // длинная — раньше её мерили по короткой стороне и отбрасывали вместе
-      // со щелями, из-за чего лестница не выделялась в отдельное помещение.
-      const along = s.treadAxis === 'x' ? b.h : b.w
-      return along < s.tread
+    // Два РАЗНЫХ порога, и это важно.
+    // Для проёмов — широкий (2×): под него попадает и торцевая стена шахты,
+    // на которой иначе появляется окно в конце лестницы, которого нет на чертеже.
+    // Для разбора на комнаты — узкий (1.3×): торцевую стену надо СОХРАНИТЬ, она
+    // отделяет кладовую под лестницей. Ступень на демо 26 единиц, торцевая
+    // стена 41 — порог 34 разводит их надёжно.
+    const wallsForOpenings = vec.walls.filter((wall) => !inShaft(wall, 2))
+    const wallsForRooms = vec.walls.filter((wall) => !inShaft(wall, 1.3))
+
+    // Стены лестничного проёма тянем до конца. На демо они начинаются с y164,
+    // а верхняя стена коридора на y144: общего дотягивания концов (18 единиц)
+    // не хватает двух пикселей, стены не смыкаются с коридором — и проём
+    // остаётся без боковых стен на всём протяжении коридора. Поднимать общее
+    // дотягивание нельзя: на БТИ стены начинают цепляться где попало и комнат
+    // выходит 36 вместо 27. Поэтому удлиняем ТОЛЬКО те стены, что образуют
+    // проём: они по смыслу идут во всю его высоту.
+    const toStretch = new Set()
+    for (const s of shafts) {
+      const runVertical = s.treadAxis === 'x'
+      // стены, идущие ВДОЛЬ хода марша и стоящие в его полосе
+      const cand = wallsForRooms.filter((wall) => {
+        const dx = wall.x2 - wall.x1
+        const dy = wall.y2 - wall.y1
+        if (Math.hypot(dx, dy) < s.tread) return false
+        if (runVertical ? Math.abs(dx) > Math.abs(dy) : Math.abs(dy) > Math.abs(dx))
+          return false
+        const cx = (wall.x1 + wall.x2) / 2
+        const cy = (wall.y1 + wall.y2) / 2
+        const side = runVertical ? cx : cy
+        const mid = runVertical ? cy : cx
+        const lo = (runVertical ? s.x0 : s.y0) - s.tread
+        const hi = (runVertical ? s.x1 : s.y1) + s.tread
+        const a = (runVertical ? s.y0 : s.x0) - s.tread
+        const b = (runVertical ? s.y1 : s.x1) + s.tread
+        return side >= lo && side <= hi && mid > a && mid < b
+      })
+      if (cand.length < 2) continue
+      // Удлиняем только КРАЙНИЕ из них. Между ними идёт тетива марша — если
+      // потянуть и её, шахта разрежется пополам, а с ней и кладовая внизу.
+      const pos = (wall) =>
+        runVertical ? (wall.x1 + wall.x2) / 2 : (wall.y1 + wall.y2) / 2
+      const sorted = cand.slice().sort((a, b) => pos(a) - pos(b))
+      toStretch.add(sorted[0])
+      toStretch.add(sorted[sorted.length - 1])
+    }
+    const stretched = wallsForRooms.map((wall) => {
+      if (!toStretch.has(wall)) return wall
+      const dx = wall.x2 - wall.x1
+      const dy = wall.y2 - wall.y1
+      const len = Math.hypot(dx, dy) || 1
+      const tread = shafts.length ? shafts[0].tread : 20
+      const g = (tread * 1.5) / len
+      return {
+        ...wall,
+        x1: wall.x1 - dx * g,
+        y1: wall.y1 - dy * g,
+        x2: wall.x2 + dx * g,
+        y2: wall.y2 + dy * g,
+      }
     })
+    const built = buildRooms(stretched, vec.w, vec.h)
+    const outline = built.outline
+    const rooms = built.rooms.filter((r) => {
+      const b = bboxOf(r.polygon)
+      const cx = b.x + b.w / 2
+      const cy = b.y + b.h / 2
+      return !shafts.some((s) => {
+        if (cx < s.x0 || cx > s.x1 || cy < s.y0 || cy > s.y1) return false
+        // Щель между ступенями тонкая ВДОЛЬ ХОДА марша. Сама шахта по этой оси
+        // длинная — раньше её мерили по короткой стороне и отбрасывали вместе
+        // со щелями, из-за чего лестница не выделялась в отдельное помещение.
+        const along = s.treadAxis === 'x' ? b.h : b.w
+        return along < s.tread
+      })
+    })
+    const { doors, windows } = findOpenings(
+      wallsForOpenings,
+      vec.inkHard,
+      vec.w,
+      vec.h,
+      rooms
+    )
+    return { rooms, outline, doors, windows }
+  }
+
+  // Первый проход даёт контур. Марш, оказавшийся ЗА контуром, — наружная
+  // лестница: зона ей не нужна, а вреда от неё много. На коттедже ступени
+  // наружного крыльца идут вплотную к стене эркера, шаг ступени совпадает с
+  // толщиной этой стены — и зона марша съедала саму стену. Эркер переставал
+  // замыкаться, и правое крыло дома пропадало с плана целиком. Ступени
+  // наружной лестницы и без зоны безвредны: щели между ними тоньше порога
+  // и в комнаты не проходят.
+  let plan = layout(flights)
+  const centreOf = (f) => ({
+    x:
+      (Math.min(...f.treads.map((t) => t.x1)) + Math.max(...f.treads.map((t) => t.x2))) /
+      2,
+    y:
+      (Math.min(...f.treads.map((t) => t.y1)) + Math.max(...f.treads.map((t) => t.y2))) /
+      2,
   })
-  const { doors, windows } = findOpenings(
-    wallsForOpenings,
-    vec.inkHard,
-    vec.w,
-    vec.h,
-    rooms
-  )
+  const indoor = plan.outline
+    ? flights.filter((f) => {
+        const c = centreOf(f)
+        return inside(plan.outline, c.x, c.y)
+      })
+    : flights
+  if (indoor.length < flights.length) plan = layout(indoor)
+  const { rooms, outline, doors, windows } = plan
 
   // Содержимое комнат — унитазы, раковины, мебель — разбирает общий с старым
   // движком код: геометрия у движков разная, а «что нарисовано внутри
@@ -476,8 +506,11 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     const list = kind === 'door' ? 'doors' : 'windows'
     const near = out.some((r) =>
       // Радиус небольшой и не зависит от ширины: окна бывают широкими и идут
-      // подряд по стене — по половине их ширины склеивались соседние.
-      r[list].some((o) => Math.hypot(o.x - item.x, o.y - item.y) < 10),
+      // подряд по стене — по половине их ширины склеивались соседние. Но 10
+      // мало: на коттедже неспаренные грани разнесены на 7 единиц картинки,
+      // а это 13 в сетке плана, и обе двери оставались. 12 убирает повтор и
+      // не задевает демо; выше 12 на БТИ начинают пропадать окна.
+      r[list].some((o) => Math.hypot(o.x - item.x, o.y - item.y) < 12),
     )
     if (near) return
     if (kind === 'door') out[best].doors.push({ ...item, style: 'cross' })
