@@ -620,15 +620,26 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
     // Придвигаем к стене ТОЛЬКО унитаз: у него бачок должен упираться в стену,
     // и по центру пятна чернил остаётся заметный зазор. Раковину не трогаем —
     // она и так встаёт по чертежу, а сдвиг её только портит.
-    const fw = Math.max(10, tw(item.w))
-    const fh = Math.max(10, tw(item.h))
+    // Чашу унитаза рисуем чуть мельче найденного пятна: в пятно попадает и
+    // обводка, и на плане овал выходит крупнее, чем нужно.
+    const shrink = item.type === 'toilet' ? 0.85 : 1
+    const fw = Math.max(10, Math.round(tw(item.w) * shrink))
+    const fh = Math.max(10, Math.round(tw(item.h) * shrink))
     const box = out[best].rect ?? bboxOf(out[best].polygon)
     // сколько прибор занимает от своего центра в сторону стены
     const along = tankDir === 'up' || tankDir === 'down' ? fh / 2 : fw / 2
-    // у унитаза за чашей ещё бачок
-    const tank =
-      item.type === 'toilet' ? Math.max(6, Math.round(Math.max(fw, fh) * 0.55)) : 0
-    const reachOut = along + tank
+    // Насколько бачок вылезает за чашу — ровно как его рисует `Room.jsx`:
+    // прямоугольник шириной `tankW` заезжает на овал на 1. Раньше тут стояла
+    // ДРУГАЯ сторона бачка (длинная, 0.55 габарита), и унитаз отходил от стены
+    // на лишние 5 единиц.
+    const tank = item.type === 'toilet' ? Math.max(5, Math.round(Math.min(fw, fh) * 0.45)) - 1 : 0
+    // Габарит комнаты идёт по ОСЕВОЙ линии стены, а стена рисуется толщиной 8
+    // симметрично ей. Ставя бачок вплотную к габариту, мы сажали его внутрь
+    // стены, и на плане он торчал наружу здания. Отступаем на половину стены
+    // плюс зазор в единицу, чтобы бачок стоял у внутренней грани.
+    const wallHalf = 4
+    const gap = 1
+    const reachOut = along + tank + wallHalf + gap
     let fx = tx(item.x)
     let fy = ty(item.y)
     if (item.type === 'toilet') {
