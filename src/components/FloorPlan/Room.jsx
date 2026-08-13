@@ -48,14 +48,69 @@ const GRAD_EXTRA = {
  *   raw?: boolean,
  * }} props
  */
+/**
+ * Подпись на плашке: перенос по словам и, если надо, уменьшение кегля — чтобы
+ * плашка укладывалась в саму комнату.
+ *
+ * Раньше ширина плашки считалась только по длине текста, а комната в расчёт
+ * не шла. После чтения подписей моделью это стало видно сразу: «Центр офисных
+ * и бухгалтерских услуг РФПМП» вылезал за стены и обрезался на «…ус».
+ *
+ * Ширину буквы берём как долю кегля — измерять текст в SVG пришлось бы через
+ * DOM, а разница в паре пикселей здесь ничего не решает.
+ */
+function layoutLabel(name, polygon, baseFont) {
+  const xs = polygon.map((p) => p[0])
+  const ys = polygon.map((p) => p[1])
+  const roomW = Math.max(...xs) - Math.min(...xs)
+  const roomH = Math.max(...ys) - Math.min(...ys)
+  const maxW = Math.max(56, Math.min(220, roomW - 14))
+  const words = name.split(/\s+/).filter(Boolean)
+  const charW = 0.54
+
+  const wrap = (fontSize) => {
+    const perLine = Math.max(4, Math.floor(maxW / (fontSize * charW)))
+    const lines = []
+    let cur = ''
+    for (const word of words) {
+      const next = cur ? `${cur} ${word}` : word
+      if (next.length <= perLine) cur = next
+      else {
+        if (cur) lines.push(cur)
+        cur = word
+      }
+    }
+    if (cur) lines.push(cur)
+    return lines.length ? lines : [name]
+  }
+
+  // Больше трёх строк подпись не занимает: дальше уменьшаем кегль. Ниже 9
+  // не опускаемся — читать всё равно нельзя, лучше пусть слегка вылезет.
+  let fontSize = baseFont
+  let lines = wrap(fontSize)
+  const maxLines = roomH >= 54 ? 3 : roomH >= 36 ? 2 : 1
+  while (lines.length > maxLines && fontSize > 9) {
+    fontSize -= 1
+    lines = wrap(fontSize)
+  }
+  const lineHeight = Math.round(fontSize * 1.2)
+  const longest = lines.reduce((a, l) => Math.max(a, l.length), 0)
+  return {
+    lines,
+    fontSize,
+    lineHeight,
+    width: Math.max(56, Math.min(maxW, longest * fontSize * charW + 18)),
+    height: lines.length * lineHeight + 10,
+  }
+}
+
 export default function Room({ room, raw = false }) {
   const points = polygonToPoints(room.polygon)
   const center = room.labelAnchor
     ? { x: room.labelAnchor[0], y: room.labelAnchor[1] }
     : polygonCentroid(room.polygon)
 
-  const fontSize = room.labelFontSize ?? 14
-  const labelWidth = Math.min(220, Math.max(70, room.name.length * (fontSize / 14) * 9 + 20))
+  const label = layoutLabel(room.name ?? '', room.polygon, room.labelFontSize ?? 14)
   // Конвертер кладёт внутренние стены как partition — тогда обводку полигона не рисуем
   // (иначе «серая полоса» поверх толстой стены, make-stage.md §8.5 п.7).
   const hasPartitions = (room.features ?? []).some((f) => f.type === 'partition')
@@ -118,13 +173,13 @@ export default function Room({ room, raw = false }) {
               {room.name}
             </text>
           ) : (
-            // Длинная подпись — на плашке
+            // Длинная подпись — на плашке, в несколько строк по ширине комнаты
             <>
               <rect
-                x={-labelWidth / 2}
-                y={-12}
-                width={labelWidth}
-                height={24}
+                x={-label.width / 2}
+                y={-label.height / 2}
+                width={label.width}
+                height={label.height}
                 rx="7"
                 fill="#ffffff"
                 fillOpacity="0.85"
@@ -135,10 +190,17 @@ export default function Room({ room, raw = false }) {
                 className={styles.roomLabelText}
                 textAnchor="middle"
                 dominantBaseline="middle"
-                y="1"
-                style={room.labelFontSize ? { fontSize: room.labelFontSize } : undefined}
+                style={{ fontSize: label.fontSize }}
               >
-                {room.name}
+                {label.lines.map((line, i) => (
+                  <tspan
+                    key={i}
+                    x="0"
+                    y={(i - (label.lines.length - 1) / 2) * label.lineHeight + 1}
+                  >
+                    {line}
+                  </tspan>
+                ))}
               </text>
             </>
           )}

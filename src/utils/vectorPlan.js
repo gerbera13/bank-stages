@@ -157,7 +157,15 @@ export function extractPlanVector(imageData) {
       vec.h,
       rooms
     )
-    return { rooms, outline, doors, windows }
+    // Окно бывает только в НАРУЖНОЙ стене. Проёмом с помещением по одну
+    // сторону и пустотой по другую выглядит и разрыв во внутренней стене,
+    // чьи грани не спарились: с одной стороны комната, с другой — щель внутри
+    // самой стены, комнатой уже не считающаяся. На БТИ так набиралось десяток
+    // окон посреди здания. Сверяемся с контуром: далеко от него окна нет.
+    const near = outline
+      ? windows.filter((o) => distToPoly(outline, o.x, o.y) <= Math.min(vec.w, vec.h) * 0.04)
+      : windows
+    return { rooms, outline, doors, windows: near }
   }
 
   // Первый проход даёт контур. Марш, оказавшийся ЗА контуром, — наружная
@@ -264,6 +272,23 @@ function areaOf(poly) {
     a += x1 * y2 - x2 * y1
   }
   return Math.abs(a) / 2
+}
+
+/** Расстояние от точки до ломаной (по её рёбрам, не до вершин). */
+function distToPoly(poly, x, y) {
+  let best = Infinity
+  for (let i = 0; i < poly.length; i++) {
+    const [ax, ay] = poly[i]
+    const [bx, by] = poly[(i + 1) % poly.length]
+    const dx = bx - ax
+    const dy = by - ay
+    const len2 = dx * dx + dy * dy || 1
+    let t = ((x - ax) * dx + (y - ay) * dy) / len2
+    t = Math.max(0, Math.min(1, t))
+    const d = Math.hypot(x - (ax + dx * t), y - (ay + dy * t))
+    if (d < best) best = d
+  }
+  return best
 }
 
 function inside(poly, x, y) {

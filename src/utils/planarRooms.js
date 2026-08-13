@@ -215,6 +215,7 @@ export function buildRooms(walls, w, h) {
 
   const frameArea = w * h
   const minArea = Math.max(300, frameArea * 0.002)
+  const maxWall = walls.reduce((a, s) => Math.max(a, s.thickness ?? 0), 0)
   const rooms = []
   // Внешняя грань обходится в обратную сторону, поэтому её площадь
   // отрицательна и по модулю равна пятну застройки. Это готовый контур
@@ -240,6 +241,17 @@ export function buildRooms(walls, w, h) {
       perim += Math.hypot(x2 - x1, y2 - y1)
     }
     if (perim > 0 && (2 * area) / perim < minSide * 0.02) continue
+    // Толстая стена, чьи грани не спарились, оставляет между ними ПРОСТОРНУЮ
+    // щель: на БТИ наружная стена в 14 единиц дала «комнаты» 307×14 и 236×14,
+    // и на плане они читались коридорами вдоль всего здания. Порог выше не
+    // поднять — он отсекает настоящие узкие помещения. Признак другой: щель
+    // не толще самой толстой стены ЭТОГО чертежа и при этом сильно вытянута.
+    // Настоящий коридор толще: на демо он 39 при самой толстой стене в 7.
+    const bx = face.map((p) => p[0])
+    const by = face.map((p) => p[1])
+    const thin = Math.min(Math.max(...bx) - Math.min(...bx), Math.max(...by) - Math.min(...by))
+    const long = Math.max(Math.max(...bx) - Math.min(...bx), Math.max(...by) - Math.min(...by))
+    if (thin <= maxWall && long >= thin * 8) continue
     const poly = dropCollinear(face)
     rooms.push({ polygon: poly.map(([x, y]) => [Math.round(x), Math.round(y)]), area })
   }
