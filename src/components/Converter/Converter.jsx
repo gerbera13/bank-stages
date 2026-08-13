@@ -23,10 +23,12 @@ import {
   Ruler,
   Grid2x2,
   DoorOpen,
+  Cpu,
   ScanText,
 } from 'lucide-react'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { extractPlanVector, toRawBlueprintVector } from '../../utils/vectorPlan.js'
+import { extractPlanFill } from '../../utils/fillPlan.js'
 import { readRoomLabels } from '../../utils/labelReader.js'
 import { useStore } from '../../state/storeContext.js'
 import FloorPlanSvg from '../FloorPlan/FloorPlanSvg.jsx'
@@ -93,6 +95,12 @@ export default function Converter() {
   const [fileName, setFileName] = useState(null)
   // Портретный чертёж развёрнут в горизонт — сообщаем об этом явно
   const [rotated, setRotated] = useState(false)
+  // Два способа разобрать один чертёж (§4а и §5а документации): «вектор»
+  // ищет стены линиями, «заливка» — комнаты как белые области. Держим оба
+  // и переключаем: на разных чертежах выигрывают разные.
+  const [engine, setEngine] = useState('vector')
+  // Кадр в исходных пикселях — по нему пересчитываем при смене движка
+  const frameDataRef = useRef(null)
   // Первая веха нового движка: найденные стены поверх исходника (только показ)
   const [vectors, setVectors] = useState(null)
   const [showVectors, setShowVectors] = useState(false)
@@ -127,6 +135,7 @@ export default function Converter() {
       canvas.height = imgData.height
       canvas.getContext('2d').putImageData(imgData, 0, 0)
       frameRef.current = canvas
+      frameDataRef.current = imgData
       setReadError(null)
       showOriginal(url)
       setFileName(file.name)
@@ -137,13 +146,13 @@ export default function Converter() {
     }
   }
 
-  const process = (imgData, name) => {
+  const process = (imgData, name, mode = engine) => {
     setProcessing(true)
     setError(null)
     try {
       // Один и тот же разбор и для наложений, и для панели «Стало» —
       // иначе счётчики на кнопках расходятся с тем, что нарисовано.
-      const parsed = extractPlanVector(imgData)
+      const parsed = mode === 'fill' ? extractPlanFill(imgData) : extractPlanVector(imgData)
       setVectors(parsed.vec)
       setNewRooms({ rooms: parsed.rooms, outline: parsed.outline })
       setFeats({ doors: parsed.doors, windows: parsed.windows, flights: parsed.flights })
@@ -236,7 +245,7 @@ export default function Converter() {
     if (floorNew) {
       const rooms = floorNew.rooms
       return {
-        mode: 'вектор',
+        mode: engine === 'fill' ? 'заливка' : 'вектор',
         rooms: rooms.length,
         doors: rooms.reduce((a, r) => a + r.doors.length, 0),
         windows: rooms.reduce((a, r) => a + r.windows.length, 0),
@@ -256,7 +265,7 @@ export default function Converter() {
       }
     }
     return null
-  }, [floorNew])
+  }, [floorNew, engine])
 
   // Автозагрузка примера при ?demo=… (для проверки): 1 — офисный этаж,
   // 11 — коттедж, 12 — план БТИ. Три чертежа устроены по-разному, и правка,
@@ -374,6 +383,20 @@ export default function Converter() {
               <DoorOpen size={14} />
               Проёмы
               {feats ? ` (${feats.doors.length}/${feats.windows.length}/${feats.flights.length})` : ''}
+            </button>
+            <button
+              type="button"
+              className={`${styles.toolBtn} ${engine === 'fill' ? styles.toolBtnOn : ''}`}
+              onClick={() => {
+                const mode = engine === 'vector' ? 'fill' : 'vector'
+                setEngine(mode)
+                if (frameDataRef.current) process(frameDataRef.current, fileName, mode)
+              }}
+              disabled={!rawNew}
+              title="Чем разбирать чертёж: «вектор» ищет стены линиями, «заливка» — комнаты как белые области"
+            >
+              <Cpu size={14} />
+              Движок: {engine === 'fill' ? 'заливка' : 'вектор'}
             </button>
             <button
               type="button"
