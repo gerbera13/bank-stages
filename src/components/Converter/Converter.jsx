@@ -1,7 +1,14 @@
 /**
  * Конвертер чертежей — отдельное ПО внутри приложения:
  * 1. Загрузка изображения (drag&drop / выбор файла).
- * 2. Обработка: извлечение геометрии (planExtractor.js) → сырой чертёж.
+ * 2. Обработка: извлечение геометрии (vectorPlan.js) → сырой чертёж.
+ *
+ * Движок один — векторный. Старый растровый разбор по прямоугольникам
+ * (`planExtractor.extractPlan`) убран из конвертера: на живых чертежах он
+ * давал 8 комнат из 18 на коттедже и 10 из 25 на плане БТИ. Хуже того,
+ * именно его результат уходил на основной план — конвертер показывал одно,
+ * а приложение получало другое. Сам `planExtractor.js` остаётся: из него
+ * по-прежнему берутся разбор содержимого комнат и вписывание в сетку.
  * 3. Просмотр «Было / Стало»: исходный чертёж рядом с красивым планом.
  * 4. Экспорт JSON для дальнейшего уточнения (make-stage.md §8.1).
  *
@@ -16,10 +23,8 @@ import {
   Ruler,
   Grid2x2,
   DoorOpen,
-  Cpu,
   ScanText,
 } from 'lucide-react'
-import { extractPlan, toRawBlueprint, fitPlanTransform } from '../../utils/planExtractor.js'
 import { parseBlueprint } from '../../utils/blueprintParser.js'
 import { extractPlanVector, toRawBlueprintVector } from '../../utils/vectorPlan.js'
 import { readRoomLabels } from '../../utils/labelReader.js'
@@ -83,8 +88,6 @@ function readImageData(file) {
 export default function Converter() {
   const { blueprint } = useStore()
   const [originalUrl, setOriginalUrl] = useState(null)
-  const [floor, setFloor] = useState(null)
-  const [extracted, setExtracted] = useState(null)
   const [error, setError] = useState(null)
   const [processing, setProcessing] = useState(false)
   const [fileName, setFileName] = useState(null)
@@ -97,15 +100,9 @@ export default function Converter() {
   const [showRooms, setShowRooms] = useState(false)
   const [feats, setFeats] = useState(null)
   const [showFeats, setShowFeats] = useState(false)
-  // Стадия 5: тот же чертёж, разобранный новым движком целиком.
-  // Держим оба результата рядом — движки сравниваются переключателем.
+  // Разобранный этаж и сырой чертёж — результат векторного движка.
   const [floorNew, setFloorNew] = useState(null)
   const [rawNew, setRawNew] = useState(null)
-  // Основной — векторный движок. На демо движки равны (18/18/22 против
-  // 19/18/18), а на живых чертежах разрыв решающий: коттедж 15 комнат и
-  // 20 дверей против 8 и 2, БТИ 26 и 53 против 10 и 16. Старый остаётся
-  // в одном щелчке — он точнее на аккуратных ч/б планах вроде демо.
-  const [engine, setEngine] = useState('new')
   // Чтение подписей локальной моделью: необязательная возможность.
   // Кадр держим канвой — из него нарезаются вырезки комнат.
   const frameRef = useRef(null)
@@ -123,8 +120,6 @@ export default function Converter() {
   const handleImage = async (file) => {
     if (!file) return
     setError(null)
-    setFloor(null)
-    setExtracted(null)
     try {
       const { imageData: imgData, url, rotated } = await readImageData(file)
       const canvas = document.createElement('canvas')
@@ -146,40 +141,26 @@ export default function Converter() {
     setProcessing(true)
     setError(null)
     try {
-      const ext = extractPlan(imgData)
-      setExtracted(ext)
-      // Вписать в 1000×640 с полями и чуть меньшим масштабом (весь план виден)
-      const { scale, ox, oy } = fitPlanTransform(ext.bounds)
-      const raw = toRawBlueprint(ext, scale, ox, oy)
-      const building = parseBlueprint(raw)
-      setFloor(building.floors[0])
-      // Векторизатор работает на том же кадре — наложение совпадёт с «Было»
-      try {
-        // Один и тот же разбор и для наложений, и для панели «Стало» —
-        // иначе счётчики на кнопках расходятся с тем, что нарисовано.
-        const parsed = extractPlanVector(imgData)
-        setVectors(parsed.vec)
-        setNewRooms({ rooms: parsed.rooms, outline: parsed.outline })
-        setFeats({ doors: parsed.doors, windows: parsed.windows, flights: parsed.flights })
-        try {
-          const rawV = toRawBlueprintVector(parsed, `Конвертер (новый движок): ${name}`)
-          setRawNew(rawV)
-          setFloorNew(parseBlueprint(rawV).floors[0])
-        } catch {
-          setRawNew(null)
-          setFloorNew(null)
-        }
-      } catch {
-        setVectors(null)
-        setNewRooms(null)
-        setFeats(null)
-        setRawNew(null)
-        setFloorNew(null)
-      }
-      // Отдаём результат на основной план — там он доступен по кнопке «Чертёж»
+      // Один и тот же разбор и для наложений, и для панели «Стало» —
+      // иначе счётчики на кнопках расходятся с тем, что нарисовано.
+      const parsed = extractPlanVector(imgData)
+      setVectors(parsed.vec)
+      setNewRooms({ rooms: parsed.rooms, outline: parsed.outline })
+      setFeats({ doors: parsed.doors, windows: parsed.windows, flights: parsed.flights })
+      const raw = toRawBlueprintVector(parsed, `Конвертер: ${name}`)
+      setRawNew(raw)
+      setFloorNew(parseBlueprint(raw).floors[0])
+      // Отдаём результат на основной план — там он доступен по кнопке «Чертёж».
+      // Раньше сюда уходил разбор СТАРОГО движка: конвертер показывал одно,
+      // а приложение получало другое — на коттедже 8 комнат вместо 18.
       blueprint.acceptConverted(raw, `чертёж «${name}»`)
     } catch (err) {
       setError(err.message)
+      setVectors(null)
+      setNewRooms(null)
+      setFeats(null)
+      setRawNew(null)
+      setFloorNew(null)
     } finally {
       setProcessing(false)
     }
@@ -205,7 +186,6 @@ export default function Converter() {
       }
       setRawNew(raw)
       setFloorNew(parseBlueprint(raw).floors[0])
-      setEngine('new')
     } catch (err) {
       setReadError(err.message)
     } finally {
@@ -213,9 +193,6 @@ export default function Converter() {
     }
   }
 
-  // Какой разбор показываем справа. Пока движки живут параллельно:
-  // старый — опорный результат, новый — проверяемый.
-  const shownFloor = engine === 'new' && floorNew ? floorNew : floor
 
   const handleDrop = (e) => {
     e.preventDefault()
@@ -224,14 +201,7 @@ export default function Converter() {
   }
 
   const handleExport = () => {
-    if (engine === 'new' && rawNew) {
-      downloadJson(rawNew)
-      return
-    }
-    if (!extracted) return
-    const { scale, ox, oy } = fitPlanTransform(extracted.bounds)
-    const raw = toRawBlueprint(extracted, scale, ox, oy)
-    downloadJson(raw)
+    if (rawNew) downloadJson(rawNew)
   }
 
   const downloadJson = (raw) => {
@@ -247,14 +217,11 @@ export default function Converter() {
 
   const reset = () => {
     showOriginal(null)
-    setFloor(null)
-    setExtracted(null)
     setError(null)
     setFileName(null)
     setRotated(false)
     setFloorNew(null)
     setRawNew(null)
-    setEngine('new')
     setReading(null)
     setReadError(null)
     frameRef.current = null
@@ -266,7 +233,7 @@ export default function Converter() {
   // Цифры описывают ТОТ разбор, что показан справа: иначе строка под именем
   // файла рассказывает про один движок, а панель «Стало» рисует другой.
   const stats = useMemo(() => {
-    if (engine === 'new' && floorNew) {
+    if (floorNew) {
       const rooms = floorNew.rooms
       return {
         mode: 'вектор',
@@ -288,17 +255,8 @@ export default function Converter() {
         ),
       }
     }
-    if (!extracted) return null
-    return {
-      mode: extracted.mode === 'color' ? 'цвет' : 'ч/б',
-      rooms: extracted.rooms.length,
-      doors: extracted.doors.length,
-      windows: extracted.windows.length,
-      sanitary: extracted.sanitary?.length ?? 0,
-      furniture: extracted.furniture?.length ?? 0,
-      stairs: extracted.stairs?.length ? String(extracted.stairs.length) : 'нет',
-    }
-  }, [extracted, engine, floorNew])
+    return null
+  }, [floorNew])
 
   // Автозагрузка примера при ?demo=… (для проверки): 1 — офисный этаж,
   // 11 — коттедж, 12 — план БТИ. Три чертежа устроены по-разному, и правка,
@@ -419,16 +377,6 @@ export default function Converter() {
             </button>
             <button
               type="button"
-              className={`${styles.toolBtn} ${engine === 'new' ? styles.toolBtnOn : ''}`}
-              onClick={() => setEngine((e) => (e === 'new' ? 'old' : 'new'))}
-              disabled={!floorNew}
-              title="Чем построена панель «Стало»: старый разбор по прямоугольникам или новый векторный"
-            >
-              <Cpu size={14} />
-              Движок: {engine === 'new' ? 'новый' : 'старый'}
-            </button>
-            <button
-              type="button"
               className={styles.toolBtn}
               onClick={handleReadLabels}
               disabled={!floorNew || reading !== null}
@@ -441,7 +389,7 @@ export default function Converter() {
               type="button"
               className={styles.toolBtn}
               onClick={handleExport}
-              disabled={!floor}
+              disabled={!rawNew}
             >
               <Download size={14} />
               Экспорт JSON
@@ -457,7 +405,7 @@ export default function Converter() {
           )}
           {processing && <p className={styles.processing}>Обработка чертежа…</p>}
 
-          {floor && (
+          {floorNew && (
             <div className={styles.compare}>
               <section className={styles.pane}>
                 <h3 className={styles.paneTitle}>Было — исходный чертёж</h3>
@@ -534,7 +482,7 @@ export default function Converter() {
               <section className={styles.pane}>
                 <h3 className={styles.paneTitle}>Стало — красивый план</h3>
                 <div className={`${styles.planWrap} palette-draft`}>
-                  <FloorPlanSvg floor={shownFloor} />
+                  <FloorPlanSvg floor={floorNew} />
                 </div>
                 <p className={styles.hint}>
                   Черновик: подписи и типы комнат уточняются вручную (make-stage.md §8.1).
