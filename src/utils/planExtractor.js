@@ -1904,6 +1904,30 @@ export function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
   }))
   const isText = textBlockFilter([...blobsByRoom.flat(), ...whole], w, h)
 
+  // Одна лестница — одна комната. Проверка «марш попал в рамку с запасом»
+  // помечала и соседнюю: на БТИ вместе с маршем лестницей объявлялась
+  // умывальная рядом, и настоящая раковина из неё пропадала. Берём ту
+  // комнату, внутри которой марш лежит, а если ни в одну не попал — ближайшую
+  // по расстоянию до середины.
+  const stairRooms = new Set()
+  for (const st of stairs ?? []) {
+    let best = -1
+    let bestD = Infinity
+    for (let i = 0; i < rooms.length; i++) {
+      const r = rooms[i]
+      // расстояние до прямоугольника, а не до его середины: иначе большая
+      // дальняя комната выигрывала у той, внутри которой марш и лежит
+      const dx = Math.max(r.x - st.x, 0, st.x - (r.x + r.w))
+      const dy = Math.max(r.y - st.y, 0, st.y - (r.y + r.h))
+      const d = Math.hypot(dx, dy)
+      if (d < bestD) {
+        bestD = d
+        best = i
+      }
+    }
+    if (best >= 0 && bestD <= 10) stairRooms.add(best)
+  }
+
   const roomMeta = rooms.map((r, ri) => {
     const blobs = blobsByRoom[ri].filter((b) => !isText(b))
     const items = blobs.map((b) => classifyBlob(b, r, b.hole, b.holeWall)).filter(Boolean)
@@ -1911,14 +1935,18 @@ export function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
     const sinks = items.filter((i) => i.type === 'sink')
     const furn = items.filter((i) => i.type !== 'toilet' && i.type !== 'sink')
 
+    const isStairs = stairRooms.has(ri)
     const isSmall = r.w <= 160 && r.h <= 160
-    // Санузел — не только кабинка с унитазом: умывальная с раковинами тоже
-    const isService = isSmall && (toilets.length >= 1 || sinks.length >= 1)
+    // Санузел — не только кабинка с унитазом: умывальная с раковинами тоже.
+    // В лестнице приборов не бывает: полоска между тетивами марша по форме
+    // неотличима от раковины, и на БТИ такая полоска давала седьмую «раковину»
+    // прямо посреди помещения 11.
+    const isService = isSmall && !isStairs && (toilets.length >= 1 || sinks.length >= 1)
 
     if (isService) {
       for (const t of toilets) sanitary.push(t)
       for (const s of sinks) sanitary.push(s)
-    } else {
+    } else if (!isStairs) {
       for (const f of furn) furniture.push(f)
       for (const t of toilets) {
         if (Math.max(t.w, t.h) >= 12) furniture.push({ ...t, type: 'chair' })
@@ -1927,13 +1955,6 @@ export function collectDetails(binOrInk, wallMask, w, h, rooms, stairs) {
 
     // Коридор помечаем позже (ровно один) — здесь только кандидат
     const isCorridor = false
-    const isStairs = (stairs ?? []).some(
-      (st) =>
-        st.x >= r.x - 6 &&
-        st.x <= r.x + r.w + 6 &&
-        st.y >= r.y - 10 &&
-        st.y <= r.y + r.h + 10,
-    )
 
     return { room: r, isService, isCorridor, isStairs }
   })

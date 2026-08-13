@@ -426,7 +426,21 @@ function pairLooksReal(x1, y1, x2, y2, thickness, ink, w, h) {
   return ok >= samples * 0.5
 }
 
-function pairFaces(segments, maxThickness, ink, w, h) {
+/**
+ * Пара подтверждена, если чернила лежат по обе стороны осевой.
+ *
+ * Основная маска — ЖЁСТКАЯ. Мягкой только СПАСАЕМ ТОНКИЕ пары: на коттедже
+ * половина стен нарисована одной чёрной гранью и одной светло-серой (яркость
+ * 190–205), в жёсткую маску серая не попадает, и стена шла в разбор двумя
+ * линиями. Но пускать мягкую маску на толстые пары нельзя — она подтверждает
+ * что угодно: на БТИ дальние грани двух РАЗНЫХ стен спарились в одну толщиной
+ * 17, и нарисованная по ней полоса накрыла стоявшую между ними раковину.
+ */
+function pairFaces(segments, maxThickness, ink, inkHard, w, h) {
+  const thinLimit = Math.max(4, maxThickness * 0.45)
+  const confirmed = (x1, y1, x2, y2, thickness) =>
+    pairLooksReal(x1, y1, x2, y2, thickness, inkHard, w, h) ||
+    (thickness <= thinLimit && pairLooksReal(x1, y1, x2, y2, thickness, ink, w, h))
   const used = new Set()
   const walls = []
   const mid = (s) => [(s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2]
@@ -500,7 +514,7 @@ function pairFaces(segments, maxThickness, ink, w, h) {
       const wy1 = dy * t0 + ny * off
       const wx2 = dx * t1 + nx * off
       const wy2 = dy * t1 + ny * off
-      if (pairLooksReal(wx1, wy1, wx2, wy2, mateDist, ink, w, h)) {
+      if (confirmed(wx1, wy1, wx2, wy2, mateDist)) {
         used.add(i)
         used.add(mate)
         walls.push({ x1: wx1, y1: wy1, x2: wx2, y2: wy2, thickness: mateDist, paired: true })
@@ -613,15 +627,11 @@ export function vectorizeWalls(imageData) {
     Math.max(12, Math.round(minSide * 0.1)),
   )
 
-  // Проверяем пару по МЯГКОЙ маске. На коттедже половина стен нарисована
-  // одной чёрной гранью и одной светло-серой (яркость 190–205): в жёсткую
-  // маску серая грань не попадает, пара не подтверждалась, и стена шла в
-  // разбор двумя отдельными линиями. Отсюда двойные двери на одной стене
-  // (18 штук вместо 9) и лишние комнаты-щели между гранями.
   const walls = pairFaces(
     whole,
     Math.max(10, Math.round(minSide * 0.06)),
     ink,
+    inkHard,
     w,
     h,
   ).map((wall) => {
