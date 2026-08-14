@@ -186,10 +186,11 @@ function bboxOfCells(cells, w) {
  * цветом полностью. Порог высокий: у кабинетов того же блока перегородки тоже
  * оранжевые, и по границе выходит 71–83% — их терять нельзя.
  */
-function colourShare(cells, ink, data, w, h) {
-  const mine = new Uint8Array(w * h)
-  for (const p of cells) mine[p] = 1
-  const seen = new Uint8Array(w * h)
+function colourShare(cells, ink, data, w, h, stamp, tag) {
+  // Метки вместо двух массивов во весь лист на каждую область: на демо это
+  // было 42 выделения по 275 КБ, и разбор заметно тормозил.
+  for (const p of cells) stamp[p] = tag
+  const seenTag = tag + 1
   let total = 0
   let colour = 0
   for (const p of cells) {
@@ -205,8 +206,8 @@ function colourShare(cells, ink, data, w, h) {
       const ny = py + dy
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
       const q = ny * w + nx
-      if (mine[q] || !ink[q] || seen[q]) continue
-      seen[q] = 1
+      if (stamp[q] === tag || stamp[q] === seenTag || !ink[q]) continue
+      stamp[q] = seenTag
       const o = q * 4
       total++
       if (
@@ -247,6 +248,8 @@ export function extractPlanFill(imageData) {
   const minArea = Math.max(300, w * h * 0.002)
 
   const regions = fillRegions(ink, w, h)
+  const stamp = new Int32Array(w * h)
+  let tag = 0
   const lab = new Int32Array(w * h)
   const bodies = []
   let nextId = 1
@@ -255,7 +258,7 @@ export function extractPlanFill(imageData) {
     if (r.touches) id = OUTSIDE
     else if (
       r.cells.length >= minArea &&
-      colourShare(r.cells, ink, imageData.data, w, h) < 0.9
+      colourShare(r.cells, ink, imageData.data, w, h, stamp, (tag += 2)) < 0.9
     ) {
       id = nextId++
       bodies.push(r)
@@ -465,38 +468,68 @@ function closeNotches(mask, lab, box, w, h, r) {
   const y1 = Math.min(h - 1, box.y + box.h + r)
   const bw = x1 - x0 + 1
   const bh = y1 - y0 + 1
-  const grown = new Uint8Array(bw * bh)
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      if (!mask[y * w + x]) continue
-      for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          const nx = x + dx
-          const ny = y + dy
-          if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue
-          grown[(ny - y0) * bw + (nx - x0)] = 1
-        }
-      }
-    }
-  }
+  const src = new Uint8Array(bw * bh)
+  for (let y = y0; y <= y1; y++)
+    for (let x = x0; x <= x1; x++)
+      if (mask[y * w + x]) src[(y - y0) * bw + (x - x0)] = 1
+  const closed = morph(morph(src, bw, bh, r, 1), bw, bh, r, 0)
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
       if (mask[y * w + x]) continue
       if (lab[y * w + x] !== WALL) continue // только по чернилам
-      let ok = 1
-      for (let dy = -r; dy <= r && ok; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-          const nx = x + dx
-          const ny = y + dy
-          if (nx < x0 || ny < y0 || nx > x1 || ny > y1 || !grown[(ny - y0) * bw + (nx - x0)]) {
-            ok = 0
+      if (closed[(y - y0) * bw + (x - x0)]) mask[y * w + x] = 1
+    }
+  }
+}
+
+/**
+ * Расширить (`grow`) или сжать маску на квадрат со стороной 2r+1.
+ *
+ * Квадрат раскладывается на два одномерных прохода — сначала по строкам,
+ * потом по столбцам, — и это ровно тот же результат за 2·(2r+1) проб вместо
+ * (2r+1)². При r=5 разница вчетверо, и она заметна: заращивание выемок идёт
+ * по каждой комнате, и в лоб разбор занимал 350 мс на демо.
+ */
+function morph(src, w, h, r, grow) {
+  const pass = (input) => {
+    const out = new Uint8Array(w * h)
+    for (let y = 0; y < h; y++) {
+      const row = y * w
+      for (let x = 0; x < w; x++) {
+        let v = grow ? 0 : 1
+        for (let d = -r; d <= r; d++) {
+          const nx = x + d
+          // за краем считаем «пусто» при расширении и «занято» при сжатии:
+          // иначе сжатие обгрызало бы рамку кадра
+          const s = nx < 0 || nx >= w ? (grow ? 0 : 1) : input[row + nx]
+          if (grow ? s : !s) {
+            v = grow ? 1 : 0
             break
           }
         }
+        out[row + x] = v
       }
-      if (ok) mask[y * w + x] = 1
+    }
+    return out
+  }
+  const byRows = pass(src)
+  // тот же проход по столбцам — через транспонирование индексов
+  const out = new Uint8Array(w * h)
+  for (let x = 0; x < w; x++) {
+    for (let y = 0; y < h; y++) {
+      let v = grow ? 0 : 1
+      for (let d = -r; d <= r; d++) {
+        const ny = y + d
+        const s = ny < 0 || ny >= h ? (grow ? 0 : 1) : byRows[ny * w + x]
+        if (grow ? s : !s) {
+          v = grow ? 1 : 0
+          break
+        }
+      }
+      out[y * w + x] = v
     }
   }
+  return out
 }
 
 /** Стены в растровую маску — по ней ищется содержимое комнат. */
