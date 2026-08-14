@@ -217,6 +217,7 @@ export function extractPlanFill(imageData) {
   const maxWall = vec.walls.reduce((a, s) => Math.max(a, s.thickness ?? 0), 0)
 
   const rooms = []
+  const outlines = []
   for (const r of bodies) {
     const b = bboxOfCells(r.cells, w)
     const thin = Math.min(b.w, b.h)
@@ -224,9 +225,13 @@ export function extractPlanFill(imageData) {
     if (thin <= maxWall && long >= thin * 8) continue
     const mask = new Uint8Array(w * h)
     for (const p of r.cells) mask[p] = 1
-    const poly = simplify(traceBoundary(mask, w, h), 2)
+    const raw = traceBoundary(mask, w, h)
+    const poly = simplify(raw, 2)
     if (poly.length < 3) continue
     rooms.push({ polygon: poly.map(([x, y]) => [Math.round(x), Math.round(y)]), area: r.cells.length })
+    // Для поиска проёмов границу упрощаем слабее: ниша проёма мельче, чем
+    // допуск, которым сглаживается сама комната, и на грубой ломаной пропадает.
+    outlines.push(simplify(raw, 1.2))
   }
   rooms.sort((a, b) => b.area - a.area)
 
@@ -262,8 +267,61 @@ export function extractPlanFill(imageData) {
       door,
     })
   }
+  // ВТОРОЙ признак проёма — выступ на границе комнаты. Так выглядит дверь,
+  // нарисованная не нишей в стене, а разрывом с дуговым символом: замкнутой
+  // щели она не оставляет, зато заливка заходит в проём и границу комнаты
+  // ведёт «скобой» — вышла в стену, прошла вдоль, вернулась. На БТИ таких
+  // дверей больше половины, и одними щелями находилось 10 из 18.
+  for (const poly of outlines) {
+    const n = poly.length
+    for (let i = 0; i < n; i++) {
+      const p0 = poly[i]
+      const p1 = poly[(i + 1) % n]
+      const p2 = poly[(i + 2) % n]
+      const p3 = poly[(i + 3) % n]
+      const ax = p1[0] - p0[0]
+      const ay = p1[1] - p0[1]
+      const bx = p2[0] - p1[0]
+      const by = p2[1] - p1[1]
+      const cx2 = p3[0] - p2[0]
+      const cy2 = p3[1] - p2[1]
+      const la = Math.hypot(ax, ay)
+      const lb = Math.hypot(bx, by)
+      const lc = Math.hypot(cx2, cy2)
+      if (la < 1.5 || la > maxT || lc < 1.5 || lc > maxT) continue
+      if (lb < minW || lb > maxW) continue
+      // боковины скобы примерно равны и смотрят навстречу друг другу
+      if (Math.abs(la - lc) > Math.max(2, Math.min(la, lc) * 0.6)) continue
+      if (ax * cx2 + ay * cy2 > -0.5 * la * lc) continue
+      // перекладина им перпендикулярна, повороты в одну сторону
+      if (Math.abs(ax * bx + ay * by) > 0.45 * la * lb) continue
+      if ((ax * by - ay * bx) * (bx * cy2 - by * cx2) <= 0) continue
+      const mx = (p1[0] + p2[0]) / 2
+      const my = (p1[1] + p2[1]) / 2
+      // куда смотрит скоба — туда и шагаем за стену
+      const nx = ax / la
+      const ny = ay / la
+      const reach = Math.round(maxT) + Math.round(maxWall) + 4
+      const far = probe(lab, w, h, mx, my, nx, ny, reach)
+      const back = probe(lab, w, h, mx, my, -nx, -ny, reach)
+      if (far === null || far === back) continue
+      const door = far > 0 && back > 0
+      const window_ = far === OUTSIDE && back > 0
+      if (!door && !window_) continue
+      found.push({
+        x: mx,
+        y: my,
+        width: Math.round(lb),
+        ux: Math.abs(bx) >= Math.abs(by) ? 1 : 0,
+        uy: Math.abs(bx) >= Math.abs(by) ? 0 : 1,
+        door,
+      })
+    }
+  }
+
   // Один проём даёт несколько щелей: оконный делится перемычкой надвое,
-  // дверной — полотном. Склеиваем близкие; дверь важнее окна.
+  // дверной — полотном. Плюс тот же проём находится и щелью, и выступом.
+  // Склеиваем близкие; дверь важнее окна.
   const merged = []
   for (const o of found.slice().sort((p) => (p.door ? -1 : 1))) {
     const near = merged.find((m) => Math.hypot(m.x - o.x, m.y - o.y) <= maxT * 1.6)
