@@ -225,13 +225,18 @@ export function extractPlanFill(imageData) {
     if (thin <= maxWall && long >= thin * 8) continue
     const mask = new Uint8Array(w * h)
     for (const p of r.cells) mask[p] = 1
-    const raw = traceBoundary(mask, w, h)
-    const poly = simplify(raw, 2)
-    if (poly.length < 3) continue
+    // Проёмы ищем по границе КАК ЕСТЬ: ниша проёма — это и есть их признак.
+    // Упрощаем слабее, чем саму комнату: на грубой ломаной ниша пропадает.
+    outlines.push(simplify(traceBoundary(mask, w, h), 1.2))
+    // А форму комнаты отдаём уже без выемок под приборами — и заодно без
+    // зубцов на дверных нишах, которых на плане быть не должно.
+    closeNotches(mask, lab, b, w, h, 5)
+    const poly = simplify(traceBoundary(mask, w, h), 2)
+    if (poly.length < 3) {
+      outlines.pop()
+      continue
+    }
     rooms.push({ polygon: poly.map(([x, y]) => [Math.round(x), Math.round(y)]), area: r.cells.length })
-    // Для поиска проёмов границу упрощаем слабее: ниша проёма мельче, чем
-    // допуск, которым сглаживается сама комната, и на грубой ломаной пропадает.
-    outlines.push(simplify(raw, 1.2))
   }
   rooms.sort((a, b) => b.area - a.area)
 
@@ -384,6 +389,60 @@ export function extractPlanFill(imageData) {
     flights,
     details,
     ms,
+  }
+}
+
+/**
+ * Зарастить выемки в комнате.
+ *
+ * Прибор или мебель у стены — это чернила, и заливка их ОБТЕКАЕТ: в полигоне
+ * комнаты остаётся вырез размером с раковину. На плане он читается зубцом на
+ * стене, которого на чертеже нет.
+ *
+ * Замыкание (расширить на r, затем сжать обратно) такие бухты затягивает.
+ * Но прибавлять разрешаем ТОЛЬКО поверх чернил: через дверной проём (там
+ * мелкая белая щель) замыкание иначе перемахнуло бы в соседнюю комнату и
+ * склеило их. Работаем в рамке комнаты с запасом — иначе на каждую комнату
+ * пришлось бы обходить весь лист.
+ */
+function closeNotches(mask, lab, box, w, h, r) {
+  const x0 = Math.max(0, box.x - r - 1)
+  const y0 = Math.max(0, box.y - r - 1)
+  const x1 = Math.min(w - 1, box.x + box.w + r)
+  const y1 = Math.min(h - 1, box.y + box.h + r)
+  const bw = x1 - x0 + 1
+  const bh = y1 - y0 + 1
+  const grown = new Uint8Array(bw * bh)
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (!mask[y * w + x]) continue
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue
+          grown[(ny - y0) * bw + (nx - x0)] = 1
+        }
+      }
+    }
+  }
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      if (mask[y * w + x]) continue
+      if (lab[y * w + x] !== WALL) continue // только по чернилам
+      let ok = 1
+      for (let dy = -r; dy <= r && ok; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx < x0 || ny < y0 || nx > x1 || ny > y1 || !grown[(ny - y0) * bw + (nx - x0)]) {
+            ok = 0
+            break
+          }
+        }
+      }
+      if (ok) mask[y * w + x] = 1
+    }
   }
 }
 
