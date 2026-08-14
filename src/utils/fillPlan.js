@@ -170,6 +170,56 @@ function bboxOfCells(cells, w) {
   return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 }
 }
 
+/**
+ * Доля ЦВЕТНЫХ чернил среди тех, что лежат вплотную к границе области.
+ *
+ * Так отличается мебель от помещения на цветных чертежах. У стола есть белая
+ * середина, и она крупнее порога площади — стол становится «комнатой», а на
+ * плане обрастает перегородками и дверями. Признак «стол тоньше» не работает
+ * (проверено: у настоящих комнат коттеджа граница те же 1–2 пикселя, потому
+ * что изнутри их ограничивает тонкая грань двойной стены), «у стола один
+ * сосед» — тоже (столы стоят кучно и видят друг друга).
+ *
+ * А вот цвет разделяет начисто: конструкцию чертят чёрным, мебель — цветом.
+ * На демо и коттедже доля ноль у всех помещений, на БТИ не выше 25% (там
+ * цветные только выноски), а на цветном блоке двадцать пять областей обведены
+ * цветом полностью. Порог высокий: у кабинетов того же блока перегородки тоже
+ * оранжевые, и по границе выходит 71–83% — их терять нельзя.
+ */
+function colourShare(cells, ink, data, w, h) {
+  const mine = new Uint8Array(w * h)
+  for (const p of cells) mine[p] = 1
+  const seen = new Uint8Array(w * h)
+  let total = 0
+  let colour = 0
+  for (const p of cells) {
+    const px = p % w
+    const py = (p / w) | 0
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const nx = px + dx
+      const ny = py + dy
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+      const q = ny * w + nx
+      if (mine[q] || !ink[q] || seen[q]) continue
+      seen[q] = 1
+      const o = q * 4
+      total++
+      if (
+        Math.max(data[o], data[o + 1], data[o + 2]) -
+          Math.min(data[o], data[o + 1], data[o + 2]) >
+        40
+      )
+        colour++
+    }
+  }
+  return total ? colour / total : 0
+}
+
 /** Кого видно, если шагать от середины щели поперёк неё наружу. */
 function probe(lab, w, h, cx, cy, dx, dy, reach) {
   for (let k = 1; k <= reach; k++) {
@@ -203,7 +253,10 @@ export function extractPlanFill(imageData) {
   for (const r of regions) {
     let id
     if (r.touches) id = OUTSIDE
-    else if (r.cells.length >= minArea) {
+    else if (
+      r.cells.length >= minArea &&
+      colourShare(r.cells, ink, imageData.data, w, h) < 0.9
+    ) {
       id = nextId++
       bodies.push(r)
     } else id = SMALL
