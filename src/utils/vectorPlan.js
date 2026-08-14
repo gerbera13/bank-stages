@@ -670,6 +670,21 @@ export function toRawBlueprintVector(v, name = 'Конвертер: план и�
         best = i
       }
     }
+    // «Строго внутри» мало: у движка-заливки прибор у стены ВЫКУСЫВАЕТ из
+    // комнаты кусок — заливка его обтекает, ведь прибор это чернила. Центр
+    // раковины попадает ровно в такую выемку и оказывается снаружи полигона.
+    // Тогда берём ближайшую комнату, если она совсем рядом.
+    if (best < 0) {
+      let nearD = Infinity
+      for (let i = 0; i < rooms.length; i++) {
+        const d = distToPoly(v.rooms[i].polygon, item.x, item.y)
+        if (d < nearD) {
+          nearD = d
+          best = i
+        }
+      }
+      if (nearD > Math.max(4, Math.min(v.vec.w, v.vec.h) * 0.03)) best = -1
+    }
     if (best < 0) continue
     out[best].type = 'service'
     const src = v.rooms[best].polygon
