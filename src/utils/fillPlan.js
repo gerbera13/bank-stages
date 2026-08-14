@@ -457,6 +457,56 @@ function buildOutline(bodies, ink, w, h, minArea) {
   let count = 0
   for (let i = 0; i < w * h; i++) if (body[i]) count++
   if (count < minArea) return null
-  const poly = simplify(traceBoundary(body, w, h), 2.5)
+  // Размыкание: к зданию приклеены обмерные выноски и засечки, и обход тянет
+  // за ними длинные пальцы — на БТИ контур выходил в 89 точек. Сжимаем маску
+  // и разжимаем обратно: тонкое отваливается, форма здания остаётся. Радиус
+  // выше двух ничего не добавляет — оставшиеся 46 точек это уже настоящие
+  // уступы. Если размыкание съело здание целиком, берём маску как есть.
+  const opened = dilate(erode(body, w, h, 2), w, h, 2)
+  let left = 0
+  for (let i = 0; i < w * h; i++) if (opened[i]) left++
+  const poly = simplify(traceBoundary(left >= minArea ? opened : body, w, h), 2.5)
   return poly.length >= 3 ? poly.map(([x, y]) => [Math.round(x), Math.round(y)]) : null
+}
+
+/** Сжать маску на r: клетка остаётся, если целы все её соседи в квадрате r. */
+function erode(mask, w, h, r) {
+  const out = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[y * w + x]) continue
+      let ok = 1
+      for (let dy = -r; dy <= r && ok; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h || !mask[ny * w + nx]) {
+            ok = 0
+            break
+          }
+        }
+      }
+      out[y * w + x] = ok
+    }
+  }
+  return out
+}
+
+/** Разжать маску на r — обратная операция к `erode`. */
+function dilate(mask, w, h, r) {
+  const out = new Uint8Array(w * h)
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[y * w + x]) continue
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+          out[ny * w + nx] = 1
+        }
+      }
+    }
+  }
+  return out
 }
