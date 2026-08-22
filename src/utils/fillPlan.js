@@ -171,6 +171,68 @@ function bboxOfCells(cells, w) {
 }
 
 /**
+ * Убрать мебель ДО заливки — на цветных чертежах.
+ *
+ * Отсев по цвету границы (см. `colourShare`) не даёт столу стать комнатой, но
+ * не спасает саму комнату: заливка обтекает мебель, и полигон кабинета идёт
+ * змейкой между столами. Заращивание тут бессильно — вырезы шириной со стол
+ * (43 единицы на цветном блоке), а заращивать на столько нельзя, перемахнёт
+ * через дверь.
+ *
+ * Стирать «всё цветное» тоже нельзя, это проверено и провалилось: синим
+ * нарисованы ОКНА, они часть наружной стены, и заливка утекает на улицу.
+ *
+ * Работает точнее: стираем связный кусок чернил, если он ЦЕЛИКОМ цветной.
+ * Стол нарисован сам по себе — его кусок весь оранжевый. Перегородка кабинета
+ * тоже оранжевая, но упирается в чёрные стены, и кусок выходит смешанный.
+ * Окно нарисовано внутри чёрной стены — тот же случай. На ч/б чертежах
+ * цветного нет вовсе, и проход ничего не меняет.
+ */
+function dropFurniture(ink, data, w, h) {
+  const seen = new Uint8Array(w * h)
+  const stack = []
+  const cells = []
+  let dropped = 0
+  const coloured = (q) => {
+    const o = q * 4
+    const mx = Math.max(data[o], data[o + 1], data[o + 2])
+    const mn = Math.min(data[o], data[o + 1], data[o + 2])
+    return mx - mn > 40
+  }
+  for (let start = 0; start < w * h; start++) {
+    if (!ink[start] || seen[start]) continue
+    stack.length = 0
+    cells.length = 0
+    stack.push(start)
+    seen[start] = 1
+    let allColour = true
+    while (stack.length) {
+      const p = stack.pop()
+      cells.push(p)
+      if (!coloured(p)) allColour = false
+      const px = p % w
+      const py = (p / w) | 0
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = px + dx
+          const ny = py + dy
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue
+          const q = ny * w + nx
+          if (!ink[q] || seen[q]) continue
+          seen[q] = 1
+          stack.push(q)
+        }
+      }
+    }
+    if (allColour) {
+      for (const p of cells) ink[p] = 0
+      dropped++
+    }
+  }
+  return dropped
+}
+
+/**
  * Доля ЦВЕТНЫХ чернил среди тех, что лежат вплотную к границе области.
  *
  * Так отличается мебель от помещения на цветных чертежах. У стола есть белая
@@ -245,6 +307,7 @@ export function extractPlanFill(imageData) {
   const h = imageData.height
   const minSide = Math.min(w, h)
   const ink = inkOf(imageData.data, w, h)
+  dropFurniture(ink, imageData.data, w, h)
   const minArea = Math.max(300, w * h * 0.002)
 
   const regions = fillRegions(ink, w, h)
